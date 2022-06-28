@@ -1,6 +1,6 @@
-use super::specification::typing::{Literal, Term};
 use crate::{
     ctx::{item_name, CloneMap, TranslationCtx},
+    specification::typing::{Literal, Term},
     translation::{
         binop_to_binop,
         function::{place::translate_rplace_inner, terminator::get_func_name},
@@ -17,6 +17,7 @@ use creusot_rustc::{
 };
 use indexmap::IndexMap;
 use std::collections::HashMap;
+use why3::{exp::Pattern, mlcfg::BlockId};
 
 pub enum Statement<'tcx> {
     Assignment(Place<'tcx>, Expr<'tcx>),
@@ -106,15 +107,91 @@ impl<'tcx> Expr<'tcx> {
 
 pub enum Terminator<'tcx> {
     Goto(BasicBlock),
-    Switch(Place<'tcx>, Vec<(Pattern<'tcx>, BasicBlock)>),
+    Switch(Expr<'tcx>, Branches<'tcx>),
+    Return,
+    Abort,
 }
 
-pub enum Pattern<'tcx> {
-    Constructor { adt: AdtDef<'tcx>, variant: VariantIdx, fields: Vec<Pattern<'tcx>> },
-    Tuple(Vec<Pattern<'tcx>>),
-    Wildcard,
-    Binder(Symbol),
-    Boolean(bool),
+pub enum Branches<'tcx> {
+    Int(Vec<(i128, BasicBlock)>, BasicBlock),
+    Uint(Vec<(u128, BasicBlock)>, BasicBlock),
+    Constructor(AdtDef<'tcx>, Vec<(VariantIdx, BasicBlock)>, BasicBlock),
+    Bool(BasicBlock, BasicBlock),
+}
+
+impl<'tcx> Terminator<'tcx> {
+    pub fn to_why(
+        self,
+        ctx: &mut TranslationCtx<'_, 'tcx>,
+        names: &mut CloneMap<'tcx>,
+        body: Option<&Body<'tcx>>,
+    ) -> why3::mlcfg::Terminator {
+        use why3::{exp::Exp, mlcfg::Terminator::*};
+        match self {
+            Terminator::Goto(bb) => Goto(BlockId(bb.into())),
+            Terminator::Switch(switch, branches) => {
+                let discr = switch.to_why(ctx, names, body);
+                match branches {
+                    Branches::Int(brs, def) => {
+                        brs.into_iter().rfold(Goto(BlockId(def.into())), |acc, (val, bb)| {
+                            Switch(
+                                Exp::BinaryOp(
+                                    why3::exp::BinOp::Eq,
+                                    box discr.clone(),
+                                    box Exp::Const(why3::exp::Constant::Int(val, None)),
+                                ),
+                                vec![
+                                    (Pattern::mk_true(), Goto(BlockId(bb.into()))),
+                                    (Pattern::mk_false(), acc),
+                                ],
+                            )
+                        })
+                    }
+                    Branches::Uint(brs, def) => {
+                        brs.into_iter().rfold(Goto(BlockId(def.into())), |acc, (val, bb)| {
+                            Switch(
+                                Exp::BinaryOp(
+                                    why3::exp::BinOp::Eq,
+                                    box discr.clone(),
+                                    box Exp::Const(why3::exp::Constant::Uint(val, None)),
+                                ),
+                                vec![
+                                    (Pattern::mk_true(), Goto(BlockId(bb.into()))),
+                                    (Pattern::mk_false(), acc),
+                                ],
+                            )
+                        })
+                    }
+                    Branches::Constructor(adt, vars, def) => {
+                        use crate::util::constructor_qname;
+                        let count = adt.variants().len();
+                        let brs = vars
+                            .into_iter()
+                            .map(|(var, bb)| {
+                                let variant = &adt.variant(var);
+                                let wilds =
+                                    variant.fields.iter().map(|_| Pattern::Wildcard).collect();
+                                let cons_name = constructor_qname(ctx.tcx, variant);
+                                (Pattern::ConsP(cons_name, wilds), Goto(BlockId(bb.into())))
+                            })
+                            .chain(std::iter::once((Pattern::Wildcard, Goto(BlockId(def.into())))))
+                            .take(count);
+
+                        Switch(discr, brs.collect())
+                    }
+                    Branches::Bool(f, t) => Switch(
+                        discr,
+                        vec![
+                            (Pattern::mk_false(), Goto(BlockId(f.into()))),
+                            (Pattern::mk_true(), Goto(BlockId(t.into()))),
+                        ],
+                    ),
+                }
+            }
+            Terminator::Return => Return,
+            Terminator::Abort => Absurd,
+        }
+    }
 }
 
 pub struct Block<'tcx> {

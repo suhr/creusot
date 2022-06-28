@@ -1,5 +1,6 @@
 use crate::{
     ctx::*,
+    fmir::{self, Expr},
     gather_spec_closures::corrected_invariant_names_and_locations,
     resolve::EagerResolver,
     rustc_extensions::renumber,
@@ -125,8 +126,6 @@ pub fn translate_trusted<'tcx>(
     decls.push(Decl::ValDecl(ValKind::Val { sig }));
     return Module { name, decls };
 }
-
-use super::fmir::Expr;
 
 // Split this into several sub-contexts: Core, Analysis, Results?
 pub struct BodyTranslator<'body, 'sess, 'tcx> {
@@ -321,10 +320,10 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
         self.current_block.0.push(s);
     }
 
-    fn emit_terminator(&mut self, t: mlcfg::Terminator) {
+    fn emit_terminator(&mut self, t: fmir::Terminator<'tcx>) {
         assert!(self.current_block.1.is_none());
 
-        self.current_block.1 = Some(t);
+        self.current_block.1 = Some(t.to_why(self.ctx, self.names, Some(self.body)));
     }
 
     fn emit_borrow(&mut self, lhs: &Place<'tcx>, rhs: &Place<'tcx>) {
@@ -332,6 +331,10 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
         self.emit_assignment(lhs, Expr::Exp(borrow));
         let reassign = Exp::Final(box self.translate_rplace(lhs));
         self.emit_assignment(rhs, Expr::Exp(reassign));
+    }
+
+    fn emit_ghost_assign(&mut self, lhs: &Place<'tcx>, rhs: Exp) {
+        self.emit_assignment(lhs, Expr::Exp(Exp::Ghost(box rhs)))
     }
 
     fn emit_assignment(&mut self, lhs: &Place<'tcx>, rhs: Expr<'tcx>) {
