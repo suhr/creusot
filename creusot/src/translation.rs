@@ -1,5 +1,6 @@
 pub mod constant;
 pub mod external;
+pub mod fmir;
 pub mod function;
 pub mod interface;
 mod logic;
