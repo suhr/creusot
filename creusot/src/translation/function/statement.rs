@@ -7,17 +7,12 @@ use creusot_rustc::{
     },
 };
 
-use why3::{
-    exp::Exp::{self, *},
-    mlcfg::Statement::*,
-    QName,
-};
+use why3::{exp::Exp, mlcfg::Statement::*, QName};
 
 use super::BodyTranslator;
 use crate::{
-    clone_map::PreludeModule,
-    translation::{binop_to_binop, unop_to_unop},
-    util::{self, constructor_qname, is_ghost_closure, item_name},
+    translation::fmir::Expr,
+    util::{self, is_ghost_closure, item_name},
 };
 
 impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
@@ -55,14 +50,14 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
         rvalue: &'_ Rvalue<'tcx>,
         loc: Location,
     ) {
-        let rval = match rvalue {
+        let rval: Expr<'tcx> = match rvalue {
             Rvalue::Use(rval) => match rval {
                 Move(pl) | Copy(pl) => {
                     // TODO: should this be done for *any* form of assignment?
                     let ty = place.ty(self.body, self.tcx).ty;
                     let pl_exp = self.translate_rplace(place);
                     self.resolve_ty(ty).emit(pl_exp, self);
-                    self.translate_rplace(pl)
+                    Expr::Exp(self.translate_rplace(pl))
                 }
                 Constant(box c) => {
                     if let Some(c) = c.literal.const_for_ty() {
@@ -110,9 +105,9 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                         .nth(0);
                     if let Some(two_phase) = two_phase {
                         let place = self.borrows[*two_phase].assigned_place.clone();
-                        Exp::Current(box self.translate_rplace(&place))
+                        Expr::Exp(Exp::Current(box self.translate_rplace(&place)))
                     } else {
-                        self.translate_rplace(pl)
+                        Expr::Place(*pl)
                     }
                 }
                 Mut { .. } => {
@@ -120,46 +115,39 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                         return;
                     }
 
-                    let borrow = BorrowMut(box self.translate_rplace(pl));
-                    self.emit_assignment(place, borrow);
-                    let reassign = Final(box self.translate_rplace(place));
-                    self.emit_assignment(pl, reassign);
+                    self.emit_borrow(place, pl);
                     return;
                 }
             },
             Rvalue::Discriminant(_) => return,
-            Rvalue::BinaryOp(BinOp::BitAnd, box (l, r)) if l.ty(self.body, self.tcx).is_bool() => {
-                self.translate_operand(l).lazy_and(self.translate_operand(r))
+            Rvalue::BinaryOp(BinOp::BitAnd, box (l, r)) if !l.ty(self.body, self.tcx).is_bool() => {
+                self.ctx.crash_and_error(si.span, "bitwise operations are currently unsupported")
             }
-            Rvalue::BinaryOp(BinOp::Eq, box (l, r)) if l.ty(self.body, self.tcx).is_bool() => {
-                self.names.import_prelude_module(PreludeModule::Prelude);
-                Call(
-                    box Exp::impure_qvar(QName::from_string("Prelude.eqb").unwrap()),
-                    vec![self.translate_operand(l), self.translate_operand(r)],
-                )
-            }
+            //     self.translate_operand(l).to_why(self.ctx, self.names, Some(self.body)).and(self.translate_operand(r).to_why(self.ctx, self.names, Some(self.body)))
+            // }
+            // Rvalue::BinaryOp(BinOp::Eq, box (l, r)) if l.ty(self.body, self.tcx).is_bool() => {
+            //     self.names.import_prelude_module(PreludeModule::Prelude);
+            //     Call(
+            //         box Exp::impure_qvar(QName::from_string("Prelude.eqb").unwrap()),
+            //         vec![self.translate_operand(l).to_why(self.ctx, self.names, Some(self.body)), self.translate_operand(r).to_why(self.ctx, self.names, Some(self.body))],
+            //     )
+            // }
             Rvalue::BinaryOp(op, box (l, r)) | Rvalue::CheckedBinaryOp(op, box (l, r)) => {
-                let exp = BinaryOp(
-                    binop_to_binop(*op),
-                    box self.translate_operand(l),
-                    box self.translate_operand(r),
-                );
-
-                self.ctx.attach_span(si.span, exp)
+                let exp =
+                    Expr::BinOp(*op, box self.translate_operand(l), box self.translate_operand(r));
+                Expr::Span(si.span, box exp)
             }
-            Rvalue::UnaryOp(op, v) => UnaryOp(unop_to_unop(*op), box self.translate_operand(v)),
+            Rvalue::UnaryOp(op, v) => Expr::UnaryOp(*op, box self.translate_operand(v)),
             Rvalue::Aggregate(box kind, ops) => {
                 use creusot_rustc::smir::mir::AggregateKind::*;
                 let fields = ops.iter().map(|op| self.translate_operand(op)).collect();
 
                 match kind {
-                    Tuple => Exp::Tuple(fields),
-                    Adt(adt, varix, _, _, _) => {
-                        let adt = self.tcx.adt_def(*adt);
-                        let variant_def = &adt.variants()[*varix];
-                        let qname = constructor_qname(self.tcx, variant_def);
+                    Tuple => Expr::Tuple(fields),
+                    Adt(adt, varix, subst, _, _) => {
+                        let adt = self.tcx.adt_def(*adt).variant(*varix).def_id;
 
-                        Constructor { ctor: qname, args: fields }
+                        Expr::Constructor(adt, subst, fields)
                     }
                     Closure(def_id, subst) => {
                         if util::is_invariant(self.tcx, *def_id) {
@@ -180,7 +168,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                             cons_name.capitalize();
                             let cons = self.names.insert(*def_id, subst).qname_ident(cons_name);
 
-                            Constructor { ctor: cons, args: fields }
+                            Expr::Constructor(*def_id, subst, fields)
                         }
                     }
                     _ => self.ctx.crash_and_error(
@@ -193,7 +181,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                 let int_conversion = uint_from_int(&UintTy::Usize);
                 let len_call = Exp::impure_qvar(QName::from_string("Seq.length").unwrap())
                     .app_to(self.translate_rplace(pl));
-                int_conversion.app_to(len_call)
+                Expr::Exp(int_conversion.app_to(len_call))
             }
             Rvalue::Cast(CastKind::Misc, op, ty) => {
                 let op_ty = op.ty(self.body, self.tcx);
@@ -207,12 +195,20 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                         _ => unreachable!(),
                     };
                     match ty.kind() {
-                        TyKind::Int(ity) => {
-                            int_from_int(ity).app_to(op_to_int.app_to(self.translate_operand(op)))
-                        }
-                        TyKind::Uint(uty) => {
-                            uint_from_int(uty).app_to(op_to_int.app_to(self.translate_operand(op)))
-                        }
+                        TyKind::Int(ity) => Expr::Exp(int_from_int(ity).app_to(op_to_int.app_to(
+                            self.translate_operand(op).to_why(
+                                self.ctx,
+                                self.names,
+                                Some(self.body),
+                            ),
+                        ))),
+                        TyKind::Uint(uty) => Expr::Exp(uint_from_int(uty).app_to(
+                            op_to_int.app_to(self.translate_operand(op).to_why(
+                                self.ctx,
+                                self.names,
+                                Some(self.body),
+                            )),
+                        )),
                         _ => unreachable!(),
                     }
                 }

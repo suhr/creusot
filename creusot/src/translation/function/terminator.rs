@@ -28,7 +28,8 @@ use why3::{
 };
 
 use crate::{
-    translation::traits,
+    ctx::{CloneMap, TranslationCtx},
+    translation::{fmir::Expr, traits},
     util::{constructor_qname, is_ghost_closure},
 };
 
@@ -57,7 +58,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                     terminator.source_info,
                     real_discr.ty(self.body, self.tcx),
                     targets,
-                    discriminant,
+                    discriminant.to_why(self.ctx, self.names, Some(self.body)),
                 );
 
                 self.emit_terminator(switch);
@@ -80,7 +81,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                     let assertion = self.assertions.remove(&def_id).unwrap();
                     let (loc, bb) = (destination, target.unwrap());
 
-                    self.emit_assignment(&loc, Exp::Ghost(Box::new(assertion)));
+                    self.emit_assignment(&loc, Expr::Exp(Exp::Ghost(Box::new(assertion))));
                     self.emit_terminator(MlT::Goto(BlockId(bb.into())));
                     return;
                 }
@@ -112,17 +113,16 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
 
                 if func_args.is_empty() {
                     // We use tuple as a dummy argument for 0-ary functions
-                    func_args.push(Exp::Tuple(vec![]))
+                    func_args.push(Expr::Tuple(vec![]))
                 }
                 let call_exp = if self.is_box_new(fun_def_id) {
                     assert_eq!(func_args.len(), 1);
 
                     func_args.remove(0)
                 } else {
-                    let fname = self.get_func_name(fun_def_id, subst, terminator.source_info.span);
-                    let exp = Exp::Call(box Exp::impure_qvar(fname), func_args);
+                    let exp = Expr::Call(fun_def_id, subst, func_args);
                     let span = terminator.source_info.span.source_callsite();
-                    self.ctx.attach_span(span, exp)
+                    Expr::Span(span, box exp)
                 };
 
                 let (loc, bb) = (destination, target.unwrap());
@@ -130,7 +130,8 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                 self.emit_terminator(MlT::Goto(BlockId(bb.into())));
             }
             Assert { cond, expected, msg: _, target, cleanup: _ } => {
-                let mut ass = self.translate_operand(cond);
+                let mut ass =
+                    self.translate_operand(cond).to_why(self.ctx, self.names, Some(self.body));
                 if !expected {
                     ass = Exp::UnaryOp(why3::exp::UnOp::Not, box ass);
                 }
@@ -153,7 +154,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
 
                 // Assign
                 let rhs = match value {
-                    Operand::Move(pl) | Operand::Copy(pl) => self.translate_rplace(pl),
+                    Operand::Move(pl) | Operand::Copy(pl) => Expr::Place(*pl),
                     Operand::Constant(box c) => crate::constant::from_mir_constant(
                         self.param_env(),
                         self.ctx,
@@ -182,36 +183,47 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
         subst: SubstsRef<'tcx>,
         sp: creusot_rustc::span::Span,
     ) -> QName {
-        if let Some(it) = self.tcx.opt_associated_item(def_id) {
-            if let ty::TraitContainer(id) = it.container {
-                let params = self.param_env();
-                let method = traits::resolve_assoc_item_opt(self.tcx, params, def_id, subst)
-                    .expect("could not find instance");
-
-                self.ctx.translate(id);
-                self.ctx.translate(method.0);
-
-                if !method.0.is_local()
-                    && !self.ctx.externs.verified(method.0)
-                    && self.ctx.extern_spec(method.0).is_none()
-                    && self.ctx.extern_spec(def_id).is_none()
-                {
-                    self.ctx.warn(sp, "calling an external function with no contract will yield an impossible precondition");
-                }
-
-                return self.names.insert(method.0, method.1).qname(self.tcx, method.0);
-            }
-        }
-
-        if !def_id.is_local()
-            && !(self.ctx.extern_spec(def_id).is_some() || self.ctx.externs.verified(def_id))
-        {
-            self.ctx.warn(sp, "calling an external function with no contract will yield an impossible precondition");
-        }
-        self.ctx.translate(def_id);
-
-        self.names.insert(def_id, subst).qname(self.tcx, def_id)
+        get_func_name(self.ctx, self.names, def_id, subst, sp)
     }
+}
+
+pub fn get_func_name<'tcx>(
+    ctx: &mut TranslationCtx<'_, 'tcx>,
+    names: &mut CloneMap<'tcx>,
+    def_id: DefId,
+    subst: SubstsRef<'tcx>,
+    sp: Span,
+) -> QName {
+    if let Some(it) = ctx.opt_associated_item(def_id) {
+        if let ty::TraitContainer(id) = it.container {
+            let params = ctx.param_env(names.self_id);
+            let method = traits::resolve_assoc_item_opt(ctx.tcx, params, def_id, subst)
+                .expect("could not find instance");
+
+            ctx.translate(id);
+            ctx.translate(method.0);
+
+            if !method.0.is_local()
+                && !ctx.externs.verified(method.0)
+                && ctx.extern_spec(method.0).is_none()
+                && ctx.extern_spec(def_id).is_none()
+            {
+                ctx.warn(sp, "calling an external function with no contract will yield an impossible precondition");
+            }
+
+            return names.insert(method.0, method.1).qname(ctx.tcx, method.0);
+        }
+    }
+
+    if !def_id.is_local() && !(ctx.extern_spec(def_id).is_some() || ctx.externs.verified(def_id)) {
+        ctx.warn(
+            sp,
+            "calling an external function with no contract will yield an impossible precondition",
+        );
+    }
+    ctx.translate(def_id);
+
+    names.insert(def_id, subst).qname(ctx.tcx, def_id)
 }
 
 // Try to extract a function defid from an operand

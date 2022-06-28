@@ -22,6 +22,8 @@ use crate::{
     util::get_builtin,
 };
 
+use super::fmir::Expr;
+
 impl<'tcx> TranslationCtx<'_, 'tcx> {
     pub fn translate_constant(&mut self, def_id: DefId) -> (Module, CloneSummary<'tcx>) {
         let mut names = CloneMap::new(self.tcx, def_id, false);
@@ -37,7 +39,7 @@ pub fn from_mir_constant<'tcx>(
     ctx: &mut TranslationCtx<'_, 'tcx>,
     names: &mut CloneMap<'tcx>,
     c: &creusot_rustc::smir::mir::Constant<'tcx>,
-) -> Exp {
+) -> Expr<'tcx> {
     from_mir_constant_kind(ctx, names, c.literal, env, c.span)
 }
 
@@ -47,13 +49,13 @@ pub fn from_mir_constant_kind<'tcx>(
     ck: creusot_rustc::smir::mir::ConstantKind<'tcx>,
     env: ParamEnv<'tcx>,
     span: Span,
-) -> Exp {
+) -> Expr<'tcx> {
     if let Some(c) = ck.const_for_ty() {
         return from_ty_const(ctx, names, c, env, span);
     }
 
     if ck.ty().is_unit() {
-        return Exp::Tuple(Vec::new());
+        return Expr::Tuple(Vec::new());
     }
 
     if ck.ty().peel_refs().is_str() {
@@ -62,11 +64,11 @@ pub fn from_mir_constant_kind<'tcx>(
             let size = Size::from_bytes(end);
             let bytes = data.inner().get_bytes(&ctx.tcx, AllocRange { start, size }).unwrap();
             let string = std::str::from_utf8(bytes).unwrap();
-            return Exp::Const(Constant::String(string.into()));
+            return Expr::Exp(Exp::Const(Constant::String(string.into())));
         }
     }
 
-    return try_to_bits(ctx, names, env, ck.ty(), span, ck);
+    return Expr::Exp(try_to_bits(ctx, names, env, ck.ty(), span, ck));
 }
 
 pub fn from_ty_const<'tcx>(
@@ -75,25 +77,25 @@ pub fn from_ty_const<'tcx>(
     c: Const<'tcx>,
     env: ParamEnv<'tcx>,
     span: Span,
-) -> Exp {
+) -> Expr<'tcx> {
     // Check if a constant is builtin and thus should not be evaluated further
     // Builtin constants are given a body which panics
     if let ConstKind::Unevaluated(u) = c.kind() &&
        let Some(builtin_nm) = get_builtin(ctx.tcx, u.def.did) &&
        let Some(nm) = QName::from_string(builtin_nm.as_str()) {
             names.import_builtin_module(nm.clone().module_qname());
-            return Exp::pure_qvar(nm.without_search_path());
+            return Expr::Exp(Exp::pure_qvar(nm.without_search_path()));
     };
 
     if let ConstKind::Unevaluated(Unevaluated { promoted: Some(p), .. }) = c.kind() {
-        return Exp::impure_var(format!("promoted{:?}", p.as_usize()).into());
+        return Expr::Exp(Exp::impure_var(format!("promoted{:?}", p.as_usize()).into()));
     }
 
     if let ConstKind::Param(_) = c.kind() {
         ctx.crash_and_error(span, "const generic parameters are not yet supported");
     }
 
-    return try_to_bits(ctx, names, env, c.ty(), span, c);
+    return Expr::Exp(try_to_bits(ctx, names, env, c.ty(), span, c));
 }
 
 fn try_to_bits<'tcx, C: ToBits<'tcx>>(
@@ -109,7 +111,6 @@ fn try_to_bits<'tcx, C: ToBits<'tcx>>(
         type_ir::sty::TyKind::{Bool, FnDef, Int, Uint},
     };
     let why3_ty = ty::translate_ty(ctx, names, span, ty);
-
     match ty.kind() {
         Int(I128) => {
             let bits = c.get_bits(ctx.tcx, env, ty);

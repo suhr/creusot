@@ -201,7 +201,7 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
 // [(P as Some)]   ---> [_1]
 // [(P as Some).0] ---> let Some(a) = [_1] in a
 // [(* P)] ---> * [P]
-pub(super) fn translate_rplace_inner<'tcx>(
+pub fn translate_rplace_inner<'tcx>(
     ctx: &mut TranslationCtx<'_, 'tcx>,
     names: &mut CloneMap<'tcx>,
     body: &Body<'tcx>,

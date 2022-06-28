@@ -107,6 +107,7 @@ impl<'tcx> Lower<'_, '_, 'tcx> {
                         self.param_env,
                         creusot_rustc::span::DUMMY_SP,
                     )
+                    .to_why(self.ctx, self.names, None)
                 })
             }
             TermKind::Var(v) => Exp::pure_var(util::ident_of(v)),

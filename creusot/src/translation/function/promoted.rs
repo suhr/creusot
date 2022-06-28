@@ -195,6 +195,6 @@ fn translate_operand<'tcx>(
         Move(pl) | Copy(pl) => {
             translate_rplace_inner(ctx, names, body, &HashMap::new(), pl.local, pl.projection)
         }
-        Constant(c) => from_mir_constant(param_env, ctx, names, c),
+        Constant(c) => from_mir_constant(param_env, ctx, names, c).to_why(ctx, names, Some(body)),
     }
 }

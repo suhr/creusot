@@ -41,10 +41,10 @@ use why3::{
     Ident,
 };
 
-mod place;
+pub mod place;
 mod promoted;
 mod statement;
-mod terminator;
+pub mod terminator;
 
 pub fn translate_function<'tcx, 'sess>(
     ctx: &mut TranslationCtx<'sess, 'tcx>,
@@ -125,6 +125,8 @@ pub fn translate_trusted<'tcx>(
     decls.push(Decl::ValDecl(ValKind::Val { sig }));
     return Module { name, decls };
 }
+
+use super::fmir::Expr;
 
 // Split this into several sub-contexts: Core, Analysis, Results?
 pub struct BodyTranslator<'body, 'sess, 'tcx> {
@@ -325,7 +327,15 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
         self.current_block.1 = Some(t);
     }
 
-    fn emit_assignment(&mut self, lhs: &Place<'tcx>, rhs: Exp) {
+    fn emit_borrow(&mut self, lhs: &Place<'tcx>, rhs: &Place<'tcx>) {
+        let borrow = Exp::BorrowMut(box self.translate_rplace(rhs));
+        self.emit_assignment(lhs, Expr::Exp(borrow));
+        let reassign = Exp::Final(box self.translate_rplace(lhs));
+        self.emit_assignment(rhs, Expr::Exp(reassign));
+    }
+
+    fn emit_assignment(&mut self, lhs: &Place<'tcx>, rhs: Expr<'tcx>) {
+        let rhs = rhs.to_why(self.ctx, self.names, Some(self.body));
         let assign = self.create_assign(lhs, rhs);
         self.emit_statement(assign);
     }
@@ -410,9 +420,9 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
     }
 
     // Useful helper to translate an operand
-    pub fn translate_operand(&mut self, operand: &Operand<'tcx>) -> Exp {
+    pub fn translate_operand(&mut self, operand: &Operand<'tcx>) -> Expr<'tcx> {
         match operand {
-            Operand::Copy(pl) | Operand::Move(pl) => self.translate_rplace(pl),
+            Operand::Copy(pl) | Operand::Move(pl) => Expr::Place(*pl),
             Operand::Constant(c) => {
                 crate::constant::from_mir_constant(self.param_env(), self.ctx, self.names, c)
             }
