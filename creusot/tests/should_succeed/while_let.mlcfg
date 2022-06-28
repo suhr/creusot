@@ -47,12 +47,12 @@ module WhileLet_F
   var _0 : ();
   var a_1 : Type.core_option_option int32;
   var b_2 : borrowed (Type.core_option_option int32);
-  var _3 : ();
-  var _4 : isize;
-  var _5 : Type.core_option_option int32;
-  var _6 : ();
+  var _4 : ();
+  var _5 : isize;
+  var _6 : Type.core_option_option int32;
   var _7 : ();
   var _8 : ();
+  var _9 : ();
   {
     goto BB0
   }
@@ -70,9 +70,9 @@ module WhileLet_F
       end
   }
   BB2 {
-    _5 <- Type.Core_Option_Option_None;
-    b_2 <- { b_2 with current = _5 };
-    _3 <- ();
+    _6 <- Type.Core_Option_Option_None;
+    b_2 <- { b_2 with current = _6 };
+    _4 <- ();
     goto BB1
   }
   BB3 {

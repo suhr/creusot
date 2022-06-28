@@ -248,9 +248,9 @@ module C08MultipleCalls_UsesFnmut
    = [@vc:do_not_keep_trace] [@vc:sp]
   var _0 : ();
   var f_1 : f;
-  var _2 : uint32;
-  var _3 : borrowed f;
-  var _4 : ();
+  var _4 : uint32;
+  var _5 : borrowed f;
+  var _6 : ();
   {
     f_1 <- f;
     goto BB0
@@ -262,10 +262,10 @@ module C08MultipleCalls_UsesFnmut
     goto BB2
   }
   BB2 {
-    _3 <- borrow_mut f_1;
-    f_1 <-  ^ _3;
-    _4 <- ();
-    _2 <- ([#"../08_multiple_calls.rs" 26 4 26 7] CallMut0.call_mut _3 _4);
+    _5 <- borrow_mut f_1;
+    f_1 <-  ^ _5;
+    _6 <- ();
+    _4 <- ([#"../08_multiple_calls.rs" 26 4 26 7] CallMut0.call_mut _5 _6);
     goto BB3
   }
   BB3 {
@@ -368,9 +368,9 @@ module C08MultipleCalls_UsesFnonce
    = [@vc:do_not_keep_trace] [@vc:sp]
   var _0 : ();
   var f_1 : f;
-  var _2 : uint32;
-  var _3 : f;
-  var _4 : ();
+  var _4 : uint32;
+  var _5 : f;
+  var _6 : ();
   {
     f_1 <- f;
     goto BB0
@@ -382,10 +382,10 @@ module C08MultipleCalls_UsesFnonce
     goto BB2
   }
   BB2 {
-    assume { Resolve0.resolve _3 };
-    _3 <- f_1;
-    _4 <- ();
-    _2 <- ([#"../08_multiple_calls.rs" 32 4 32 7] CallOnce0.call_once _3 _4);
+    assume { Resolve0.resolve _5 };
+    _5 <- f_1;
+    _6 <- ();
+    _4 <- ([#"../08_multiple_calls.rs" 32 4 32 7] CallOnce0.call_once _5 _6);
     goto BB3
   }
   BB3 {
@@ -425,12 +425,12 @@ module C08MultipleCalls_MultiUse
   var c_2 : Closure00.c08multiplecalls_multiuse_closure0;
   var closure_3 : Closure00.c08multiplecalls_multiuse_closure0;
   var _4 : t;
-  var _5 : ();
-  var _6 : Closure00.c08multiplecalls_multiuse_closure0;
-  var _7 : ();
-  var _8 : Closure00.c08multiplecalls_multiuse_closure0;
-  var _9 : ();
-  var _10 : Closure00.c08multiplecalls_multiuse_closure0;
+  var _6 : ();
+  var _7 : Closure00.c08multiplecalls_multiuse_closure0;
+  var _8 : ();
+  var _9 : Closure00.c08multiplecalls_multiuse_closure0;
+  var _10 : ();
+  var _11 : Closure00.c08multiplecalls_multiuse_closure0;
   {
     x_1 <- x;
     goto BB0
@@ -442,22 +442,22 @@ module C08MultipleCalls_MultiUse
     assume { Closure00.resolve c_2 };
     c_2 <- closure_3;
     assume { Closure00.resolve closure_3 };
-    assume { Closure00.resolve _6 };
-    _6 <- c_2;
-    _5 <- ([#"../08_multiple_calls.rs" 11 4 11 14] UsesFn0.uses_fn _6);
+    assume { Closure00.resolve _7 };
+    _7 <- c_2;
+    _6 <- ([#"../08_multiple_calls.rs" 11 4 11 14] UsesFn0.uses_fn _7);
     goto BB1
   }
   BB1 {
-    assume { Closure00.resolve _8 };
-    _8 <- c_2;
-    _7 <- ([#"../08_multiple_calls.rs" 12 4 12 17] UsesFnmut0.uses_fnmut _8);
+    assume { Closure00.resolve _9 };
+    _9 <- c_2;
+    _8 <- ([#"../08_multiple_calls.rs" 12 4 12 17] UsesFnmut0.uses_fnmut _9);
     goto BB2
   }
   BB2 {
-    assume { Closure00.resolve _10 };
-    _10 <- c_2;
+    assume { Closure00.resolve _11 };
+    _11 <- c_2;
     assume { Closure00.resolve c_2 };
-    _9 <- ([#"../08_multiple_calls.rs" 13 4 13 18] UsesFnonce0.uses_fnonce _10);
+    _10 <- ([#"../08_multiple_calls.rs" 13 4 13 18] UsesFnonce0.uses_fnonce _11);
     goto BB3
   }
   BB3 {

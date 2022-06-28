@@ -69,13 +69,13 @@ module Modules_Nested_InnerFunc
     
    = [@vc:do_not_keep_trace] [@vc:sp]
   var _0 : bool;
-  var _1 : Type.modules_nested_nested;
+  var _2 : Type.modules_nested_nested;
   {
     goto BB0
   }
   BB0 {
-    _1 <- Type.Modules_Nested_Nested_Test;
-    assume { Resolve0.resolve _1 };
+    _2 <- Type.Modules_Nested_Nested_Test;
+    assume { Resolve0.resolve _2 };
     _0 <- true;
     return _0
   }
