@@ -90,7 +90,7 @@ module Knapsack_Max
     _5 <- ([#"../knapsack.rs" 23 7 23 12] _6 < _7);
     switch (_5)
       | False -> goto BB2
-      | _ -> goto BB1
+      | True -> goto BB1
       end
   }
   BB1 {
@@ -848,7 +848,7 @@ module Knapsack_Knapsack01Dyn
     _20 <- ([#"../knapsack.rs" 67 10 67 25] _21 < _22);
     switch (_20)
       | False -> goto BB32
-      | _ -> goto BB10
+      | True -> goto BB10
       end
   }
   BB10 {
@@ -889,7 +889,7 @@ module Knapsack_Knapsack01Dyn
     _35 <- ([#"../knapsack.rs" 84 14 84 29] _36 <= _37);
     switch (_35)
       | False -> goto BB31
-      | _ -> goto BB18
+      | True -> goto BB18
       end
   }
   BB18 {
@@ -898,7 +898,7 @@ module Knapsack_Knapsack01Dyn
     _39 <- ([#"../knapsack.rs" 85 38 85 51] _40 > _41);
     switch (_39)
       | False -> goto BB22
-      | _ -> goto BB19
+      | True -> goto BB19
       end
   }
   BB19 {
@@ -1010,7 +1010,7 @@ module Knapsack_Knapsack01Dyn
     _88 <- ([#"../knapsack.rs" 101 10 101 15] (0 : usize) < _89);
     switch (_88)
       | False -> goto BB47
-      | _ -> goto BB37
+      | True -> goto BB37
       end
   }
   BB37 {
@@ -1053,7 +1053,7 @@ module Knapsack_Knapsack01Dyn
     _94 <- ([#"../knapsack.rs" 104 11 104 71] _95 <> _103);
     switch (_94)
       | False -> goto BB45
-      | _ -> goto BB43
+      | True -> goto BB43
       end
   }
   BB43 {

@@ -311,7 +311,7 @@ module C01_SliceFirst
     _3 <- ([#"../01.rs" 21 7 21 18] _4 > (0 : usize));
     switch (_3)
       | False -> goto BB4
-      | _ -> goto BB2
+      | True -> goto BB2
       end
   }
   BB2 {

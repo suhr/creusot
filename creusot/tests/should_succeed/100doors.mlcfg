@@ -498,7 +498,7 @@ module C100doors_F
     _7 <- ([#"../100doors.rs" 23 10 23 17] _8 < (101 : usize));
     switch (_7)
       | False -> goto BB6
-      | _ -> goto BB4
+      | True -> goto BB4
       end
   }
   BB4 {
@@ -523,7 +523,7 @@ module C100doors_F
     _15 <- not _16;
     switch (_15)
       | False -> goto BB9
-      | _ -> goto BB8
+      | True -> goto BB8
       end
   }
   BB8 {
@@ -544,7 +544,7 @@ module C100doors_F
     _23 <- ([#"../100doors.rs" 36 10 36 20] _24 < (101 : usize));
     switch (_23)
       | False -> goto BB19
-      | _ -> goto BB12
+      | True -> goto BB12
       end
   }
   BB12 {
@@ -561,7 +561,7 @@ module C100doors_F
     _29 <- ([#"../100doors.rs" 40 14 40 25] _30 <= (100 : usize));
     switch (_29)
       | False -> goto BB18
-      | _ -> goto BB15
+      | True -> goto BB15
       end
   }
   BB15 {

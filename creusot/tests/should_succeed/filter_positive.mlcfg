@@ -595,7 +595,7 @@ module FilterPositive_M
     _10 <- ([#"../filter_positive.rs" 86 10 86 21] _11 < _12);
     switch (_10)
       | False -> goto BB10
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {
@@ -609,7 +609,7 @@ module FilterPositive_M
     _15 <- ([#"../filter_positive.rs" 87 11 87 19] _16 > (0 : int32));
     switch (_15)
       | False -> goto BB8
-      | _ -> goto BB7
+      | True -> goto BB7
       end
   }
   BB7 {
@@ -655,7 +655,7 @@ module FilterPositive_M
     _28 <- ([#"../filter_positive.rs" 100 10 100 21] _29 < _30);
     switch (_28)
       | False -> goto BB25
-      | _ -> goto BB16
+      | True -> goto BB16
       end
   }
   BB16 {
@@ -669,7 +669,7 @@ module FilterPositive_M
     _33 <- ([#"../filter_positive.rs" 101 11 101 19] _34 > (0 : int32));
     switch (_33)
       | False -> goto BB23
-      | _ -> goto BB18
+      | True -> goto BB18
       end
   }
   BB18 {

@@ -192,7 +192,7 @@ module C01Range_Impl0_Next
     _3 <- ([#"../01_range.rs" 48 11 48 33] _4 >= _5);
     switch (_3)
       | False -> goto BB2
-      | _ -> goto BB1
+      | True -> goto BB1
       end
   }
   BB1 {

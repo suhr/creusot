@@ -768,7 +768,7 @@ module SelectionSortGeneric_SelectionSort
     _15 <- ([#"../selection_sort_generic.rs" 35 10 35 21] _16 < _17);
     switch (_15)
       | False -> goto BB17
-      | _ -> goto BB4
+      | True -> goto BB4
       end
   }
   BB4 {
@@ -790,7 +790,7 @@ module SelectionSortGeneric_SelectionSort
     _26 <- ([#"../selection_sort_generic.rs" 41 14 41 25] _27 < _28);
     switch (_26)
       | False -> goto BB14
-      | _ -> goto BB7
+      | True -> goto BB7
       end
   }
   BB7 {
@@ -818,7 +818,7 @@ module SelectionSortGeneric_SelectionSort
   BB10 {
     switch (_31)
       | False -> goto BB12
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB11 {

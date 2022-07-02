@@ -2102,13 +2102,13 @@ module RedBlackTree_Impl12_Balance
   BB3 {
     switch (_14)
       | False -> goto BB8
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB4 {
     switch (_15)
       | False -> goto BB1
-      | _ -> goto BB2
+      | True -> goto BB2
       end
   }
   BB5 {
@@ -2147,13 +2147,13 @@ module RedBlackTree_Impl12_Balance
   BB12 {
     switch (_23)
       | False -> goto BB19
-      | _ -> goto BB17
+      | True -> goto BB17
       end
   }
   BB13 {
     switch (_24)
       | False -> goto BB10
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB14 {
@@ -2201,13 +2201,13 @@ module RedBlackTree_Impl12_Balance
   BB23 {
     switch (_33)
       | False -> goto BB28
-      | _ -> goto BB26
+      | True -> goto BB26
       end
   }
   BB24 {
     switch (_34)
       | False -> goto BB21
-      | _ -> goto BB22
+      | True -> goto BB22
       end
   }
   BB25 {
@@ -2421,7 +2421,7 @@ module RedBlackTree_Impl12_MoveRedLeft
   BB5 {
     switch (_19)
       | False -> goto BB12
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB6 {
@@ -2652,7 +2652,7 @@ module RedBlackTree_Impl12_MoveRedRight
   BB4 {
     switch (_18)
       | False -> goto BB11
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {
@@ -3636,14 +3636,14 @@ module RedBlackTree_Impl13_DeleteMinRec
   BB12 {
     switch (_31)
       | False -> goto BB19
-      | _ -> goto BB17
+      | True -> goto BB17
       end
   }
   BB13 {
     _32 <- not _33;
     switch (_32)
       | False -> goto BB10
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB14 {
@@ -3919,14 +3919,14 @@ module RedBlackTree_Impl13_DeleteMin
   BB7 {
     switch (_15)
       | False -> goto BB11
-      | _ -> goto BB10
+      | True -> goto BB10
       end
   }
   BB8 {
     _16 <- not _17;
     switch (_16)
       | False -> goto BB5
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB9 {
@@ -3964,7 +3964,7 @@ module RedBlackTree_Impl13_DeleteMin
   BB14 {
     switch (_30)
       | False -> goto BB18
-      | _ -> goto BB15
+      | True -> goto BB15
       end
   }
   BB15 {
@@ -4374,7 +4374,7 @@ module RedBlackTree_Impl13_DeleteRec
   BB6 {
     switch (_27)
       | False -> goto BB8
-      | _ -> goto BB7
+      | True -> goto BB7
       end
   }
   BB7 {
@@ -4401,14 +4401,14 @@ module RedBlackTree_Impl13_DeleteRec
   BB11 {
     switch (_31)
       | False -> goto BB18
-      | _ -> goto BB16
+      | True -> goto BB16
       end
   }
   BB12 {
     _32 <- not _33;
     switch (_32)
       | False -> goto BB9
-      | _ -> goto BB10
+      | True -> goto BB10
       end
   }
   BB13 {
@@ -4461,9 +4461,15 @@ module RedBlackTree_Impl13_DeleteRec
     goto BB67
   }
   BB23 {
+<<<<<<< HEAD
     switch (_47)
       | False -> goto BB29
       | _ -> goto BB24
+=======
+    switch (_48)
+      | False -> goto BB26
+      | True -> goto BB24
+>>>>>>> ac90c590 (update boolean matches)
       end
   }
   BB24 {
@@ -4487,8 +4493,15 @@ module RedBlackTree_Impl13_DeleteRec
     goto BB27
   }
   BB27 {
+<<<<<<< HEAD
     _20 <- ();
     goto BB28
+=======
+    switch (_54)
+      | False -> goto BB36
+      | True -> goto BB28
+      end
+>>>>>>> ac90c590 (update boolean matches)
   }
   BB28 {
     goto BB66
@@ -4551,6 +4564,7 @@ module RedBlackTree_Impl13_DeleteRec
     goto BB70
   }
   BB39 {
+<<<<<<< HEAD
     assume { Resolve2.resolve self_1 };
     _54 <- ();
     assert { [#"../red_black_tree.rs" 683 20 683 104] exists h : (int) . HasHeight0.has_height (Type.redblacktree_node_Node_left ( * node_16)) h /\ HasHeight0.has_height (Type.redblacktree_node_Node_right ( * node_16)) h };
@@ -4558,6 +4572,12 @@ module RedBlackTree_Impl13_DeleteRec
     _76 <- Type.redblacktree_tree_Tree_node (Type.redblacktree_node_Node_right ( * node_16));
     _75 <- ([#"../red_black_tree.rs" 684 24 684 48] AsRef0.as_ref _76);
     goto BB43
+=======
+    switch (_67)
+      | False -> goto BB45
+      | True -> goto BB44
+      end
+>>>>>>> ac90c590 (update boolean matches)
   }
   BB40 {
     _70 <- false;
@@ -4570,9 +4590,16 @@ module RedBlackTree_Impl13_DeleteRec
     goto BB46
   }
   BB42 {
+<<<<<<< HEAD
     switch (_70)
       | False -> goto BB51
       | _ -> goto BB47
+=======
+    _68 <- not _69;
+    switch (_68)
+      | False -> goto BB37
+      | True -> goto BB38
+>>>>>>> ac90c590 (update boolean matches)
       end
   }
   BB43 {
@@ -4975,14 +5002,14 @@ module RedBlackTree_Impl13_Delete
   BB7 {
     switch (_17)
       | False -> goto BB11
-      | _ -> goto BB10
+      | True -> goto BB10
       end
   }
   BB8 {
     _18 <- not _19;
     switch (_18)
       | False -> goto BB5
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB9 {
@@ -5022,7 +5049,7 @@ module RedBlackTree_Impl13_Delete
   BB14 {
     switch (_33)
       | False -> goto BB18
-      | _ -> goto BB15
+      | True -> goto BB15
       end
   }
   BB15 {

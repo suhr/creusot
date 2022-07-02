@@ -306,7 +306,7 @@ module IncSome2List_Impl1_TakeSomeRest
   BB5 {
     switch (_12)
       | False -> goto BB7
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB6 {
@@ -479,7 +479,7 @@ module IncSome2List_IncSome2List
     _17 <- not _18;
     switch (_17)
       | False -> goto BB7
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB6 {

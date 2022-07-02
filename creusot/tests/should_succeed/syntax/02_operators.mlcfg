@@ -385,7 +385,6 @@ module C02Operators_BoolEq_Interface
     
 end
 module C02Operators_BoolEq
-  use prelude.Prelude
   let rec cfg bool_eq [@cfg:stackify] [#"../02_operators.rs" 95 0 95 36] (a : bool) (b : bool) : bool
     ensures { [#"../02_operators.rs" 94 10 94 28] result = (a = b) }
     
@@ -403,7 +402,7 @@ module C02Operators_BoolEq
   BB0 {
     _4 <- a_1;
     _5 <- b_2;
-    _0 <- Prelude.eqb _4 _5;
+    _0 <- ([#"../02_operators.rs" 96 4 96 10] _4 = _5);
     return _0
   }
   

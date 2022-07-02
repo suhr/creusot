@@ -554,7 +554,7 @@ module C02_FibMemo
     _15 <- ([#"../02.rs" 94 27 94 33] _16 = (0 : usize));
     switch (_15)
       | False -> goto BB7
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB4 {
@@ -574,7 +574,7 @@ module C02_FibMemo
     _17 <- ([#"../02.rs" 96 22 96 28] _18 = (1 : usize));
     switch (_17)
       | False -> goto BB9
-      | _ -> goto BB8
+      | True -> goto BB8
       end
   }
   BB8 {

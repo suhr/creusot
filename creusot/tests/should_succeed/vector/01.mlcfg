@@ -353,7 +353,7 @@ module C01_AllZero
     _13 <- ([#"../01.rs" 15 10 15 21] _14 < _15);
     switch (_13)
       | False -> goto BB6
-      | _ -> goto BB4
+      | True -> goto BB4
       end
   }
   BB4 {

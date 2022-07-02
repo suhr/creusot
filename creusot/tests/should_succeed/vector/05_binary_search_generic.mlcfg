@@ -666,7 +666,7 @@ module C05BinarySearchGeneric_BinarySearch
     _9 <- ([#"../05_binary_search_generic.rs" 25 7 25 21] _10 = (0 : usize));
     switch (_9)
       | False -> goto BB6
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {
@@ -698,7 +698,7 @@ module C05BinarySearchGeneric_BinarySearch
     _21 <- ([#"../05_binary_search_generic.rs" 34 10 34 18] _22 > (1 : usize));
     switch (_21)
       | False -> goto BB18
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB11 {
@@ -731,7 +731,7 @@ module C05BinarySearchGeneric_BinarySearch
   BB14 {
     switch (_34)
       | False -> goto BB16
-      | _ -> goto BB15
+      | True -> goto BB15
       end
   }
   BB15 {

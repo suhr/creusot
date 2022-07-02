@@ -738,7 +738,7 @@ module C02Gnome_GnomeSort
     _13 <- ([#"../02_gnome.rs" 25 10 25 21] _14 < _15);
     switch (_13)
       | False -> goto BB16
-      | _ -> goto BB4
+      | True -> goto BB4
       end
   }
   BB4 {
@@ -746,7 +746,7 @@ module C02Gnome_GnomeSort
     _18 <- ([#"../02_gnome.rs" 26 11 26 17] _19 = (0 : usize));
     switch (_18)
       | False -> goto BB6
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {
@@ -763,7 +763,7 @@ module C02Gnome_GnomeSort
   BB7 {
     switch (_17)
       | False -> goto BB12
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB8 {

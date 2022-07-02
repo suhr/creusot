@@ -609,7 +609,7 @@ module SparseArray_Impl1_Get
     _12 <- ([#"../sparse_array.rs" 91 11 91 25] _13 < _14);
     switch (_12)
       | False -> goto BB2
-      | _ -> goto BB3
+      | True -> goto BB3
       end
   }
   BB2 {
@@ -625,7 +625,7 @@ module SparseArray_Impl1_Get
   BB4 {
     switch (_11)
       | False -> goto BB8
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB5 {
@@ -955,7 +955,7 @@ module SparseArray_Impl1_Set
     _20 <- ([#"../sparse_array.rs" 118 13 118 27] _21 < _22);
     switch (_20)
       | False -> goto BB6
-      | _ -> goto BB7
+      | True -> goto BB7
       end
   }
   BB6 {
@@ -972,7 +972,7 @@ module SparseArray_Impl1_Set
     _18 <- not _19;
     switch (_18)
       | False -> goto BB14
-      | _ -> goto BB10
+      | True -> goto BB10
       end
   }
   BB9 {

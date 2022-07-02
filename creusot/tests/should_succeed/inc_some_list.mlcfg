@@ -307,7 +307,7 @@ module IncSomeList_Impl1_TakeSome
   BB5 {
     switch (_15)
       | False -> goto BB7
-      | _ -> goto BB6
+      | True -> goto BB6
       end
   }
   BB6 {
@@ -436,7 +436,7 @@ module IncSomeList_IncSomeList
     _10 <- not _11;
     switch (_10)
       | False -> goto BB6
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {

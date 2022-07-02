@@ -434,7 +434,7 @@ module C06KnightsTour_Impl1_New
     _13 <- ([#"../06_knights_tour.rs" 48 14 48 22] _14 < _15);
     switch (_13)
       | False -> goto BB8
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {
@@ -696,7 +696,7 @@ module C06KnightsTour_Impl1_Available
     _8 <- ([#"../06_knights_tour.rs" 59 8 59 16] (0 : isize) <= _9);
     switch (_8)
       | False -> goto BB10
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB1 {
@@ -728,7 +728,7 @@ module C06KnightsTour_Impl1_Available
   BB6 {
     switch (_5)
       | False -> goto BB1
-      | _ -> goto BB2
+      | True -> goto BB2
       end
   }
   BB7 {
@@ -744,7 +744,7 @@ module C06KnightsTour_Impl1_Available
   BB9 {
     switch (_6)
       | False -> goto BB4
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB10 {
@@ -762,7 +762,7 @@ module C06KnightsTour_Impl1_Available
   BB12 {
     switch (_7)
       | False -> goto BB7
-      | _ -> goto BB8
+      | True -> goto BB8
       end
   }
   BB13 {
@@ -956,7 +956,7 @@ module C06KnightsTour_Impl1_CountDegree
     assume { Resolve0.resolve _14 };
     switch (_10)
       | False -> goto BB14
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {
@@ -989,7 +989,7 @@ module C06KnightsTour_Impl1_CountDegree
   BB10 {
     switch (_24)
       | False -> goto BB12
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB11 {
@@ -1341,7 +1341,7 @@ module C06KnightsTour_Min
     _8 <- ([#"../06_knights_tour.rs" 124 10 124 21] _9 < _10);
     switch (_8)
       | False -> goto BB14
-      | _ -> goto BB3
+      | True -> goto BB3
       end
   }
   BB3 {
@@ -1380,7 +1380,7 @@ module C06KnightsTour_Min
     _21 <- ([#"../06_knights_tour.rs" 128 19 128 31] _22 < _26);
     switch (_21)
       | False -> goto BB11
-      | _ -> goto BB9
+      | True -> goto BB9
       end
   }
   BB9 {
@@ -1667,7 +1667,7 @@ module C06KnightsTour_KnightsTour
     _28 <- ([#"../06_knights_tour.rs" 160 10 160 31] _29 <= _30);
     switch (_28)
       | False -> goto BB32
-      | _ -> goto BB7
+      | True -> goto BB7
       end
   }
   BB7 {
@@ -1700,7 +1700,7 @@ module C06KnightsTour_KnightsTour
     assume { Resolve0.resolve _41 };
     switch (_37)
       | False -> goto BB25
-      | _ -> goto BB14
+      | True -> goto BB14
       end
   }
   BB14 {
@@ -1733,7 +1733,7 @@ module C06KnightsTour_KnightsTour
   BB19 {
     switch (_51)
       | False -> goto BB23
-      | _ -> goto BB20
+      | True -> goto BB20
       end
   }
   BB20 {

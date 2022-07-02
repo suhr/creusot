@@ -842,7 +842,7 @@ module HeapsortGeneric_SiftDown
     _27 <- ([#"../heapsort_generic.rs" 55 11 55 23] _28 >= _29);
     switch (_27)
       | False -> goto BB5
-      | _ -> goto BB4
+      | True -> goto BB4
       end
   }
   BB4 {
@@ -861,7 +861,7 @@ module HeapsortGeneric_SiftDown
     _38 <- ([#"../heapsort_generic.rs" 60 11 60 26] _39 < _41);
     switch (_38)
       | False -> goto BB6
-      | _ -> goto BB7
+      | True -> goto BB7
       end
   }
   BB6 {
@@ -877,7 +877,7 @@ module HeapsortGeneric_SiftDown
   BB8 {
     switch (_37)
       | False -> goto BB13
-      | _ -> goto BB12
+      | True -> goto BB12
       end
   }
   BB9 {
@@ -935,7 +935,7 @@ module HeapsortGeneric_SiftDown
   BB17 {
     switch (_54)
       | False -> goto BB19
-      | _ -> goto BB18
+      | True -> goto BB18
       end
   }
   BB18 {
@@ -1185,7 +1185,7 @@ module HeapsortGeneric_HeapSort
     _19 <- ([#"../heapsort_generic.rs" 96 10 96 19] _20 > (0 : usize));
     switch (_19)
       | False -> goto BB8
-      | _ -> goto BB5
+      | True -> goto BB5
       end
   }
   BB5 {
@@ -1225,7 +1225,7 @@ module HeapsortGeneric_HeapSort
     _37 <- ([#"../heapsort_generic.rs" 109 10 109 17] _38 > (1 : usize));
     switch (_37)
       | False -> goto BB15
-      | _ -> goto BB11
+      | True -> goto BB11
       end
   }
   BB11 {

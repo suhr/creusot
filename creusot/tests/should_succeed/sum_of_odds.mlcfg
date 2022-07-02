@@ -148,7 +148,7 @@ module SumOfOdds_ComputeSumOfOdd
     _11 <- ([#"../sum_of_odds.rs" 41 10 41 15] _12 < _13);
     switch (_11)
       | False -> goto BB3
-      | _ -> goto BB2
+      | True -> goto BB2
       end
   }
   BB2 {

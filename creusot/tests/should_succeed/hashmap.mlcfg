@@ -839,7 +839,7 @@ module Hashmap_Impl5_Get
   BB7 {
     switch (_25)
       | False -> goto BB9
-      | _ -> goto BB8
+      | True -> goto BB8
       end
   }
   BB8 {
@@ -1197,7 +1197,7 @@ module Hashmap_Impl5_Add
   BB9 {
     switch (_43)
       | False -> goto BB11
-      | _ -> goto BB10
+      | True -> goto BB10
       end
   }
   BB10 {
@@ -1811,7 +1811,7 @@ module Hashmap_Impl5_Resize
     _24 <- ([#"../hashmap.rs" 185 14 185 36] _25 < _26);
     switch (_24)
       | False -> goto BB25
-      | _ -> goto BB8
+      | True -> goto BB8
       end
   }
   BB8 {

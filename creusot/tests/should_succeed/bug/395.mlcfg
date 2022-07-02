@@ -51,7 +51,7 @@ module C395_SignedDivision
   BB1 {
     _10 <- ([#"../395.rs" 7 12 7 17] _8 = (-1 : int32));
     _11 <- ([#"../395.rs" 7 12 7 17] _7 = (-2147483648 : int32));
-    _12 <- _10 && _11;
+    _12 <- ([#"../395.rs" 7 12 7 17] _10 && _11);
     assert { not _12 };
     goto BB2
   }
@@ -61,7 +61,7 @@ module C395_SignedDivision
     _4 <- not _5;
     switch (_4)
       | False -> goto BB4
-      | _ -> goto BB3
+      | True -> goto BB3
       end
   }
   BB3 {
