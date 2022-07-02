@@ -320,6 +320,13 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
         self.current_block.0.push(s);
     }
 
+    fn emit_statementf(&mut self, s: fmir::Statement<'tcx>) {
+        match s.to_why(self.ctx, self.names, self.body, self.param_env()) {
+            Some(s) => self.emit_statement(s),
+            None => (),
+        }
+    }
+
     fn emit_terminator(&mut self, t: fmir::Terminator<'tcx>) {
         assert!(self.current_block.1.is_none());
 
@@ -341,11 +348,6 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
         let rhs = rhs.to_why(self.ctx, self.names, Some(self.body));
         let assign = self.create_assign(lhs, rhs);
         self.emit_statement(assign);
-    }
-
-    fn resolve_ty(&mut self, ty: Ty<'tcx>) -> ResolveStmt {
-        let param_env = self.param_env();
-        resolve_predicate_of(&mut self.ctx, &mut self.names, param_env, ty)
     }
 
     // Inserts drop statements for variables which died over the course of a goto or switch
@@ -412,13 +414,9 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
 
     fn freeze_locals(&mut self, mut dying: BitSet<Local>) {
         dying.subtract(&self.erased_locals.to_hybrid());
-        let param_env = self.param_env();
 
         for local in dying.iter() {
-            let local_ty = self.body.local_decls[local].ty;
-            let ident = self.translate_local(local).ident();
-            resolve_predicate_of(&mut self.ctx, &mut self.names, param_env, local_ty)
-                .emit(Exp::impure_var(ident), self);
+            self.emit_statementf(fmir::Statement::Resolve(local.into()));
         }
     }
 
@@ -635,12 +633,6 @@ impl ResolveStmt {
             Some(e) => e.app_to(to),
         }
     }
-    fn emit(self, to: Exp, fctx: &mut BodyTranslator) {
-        match self.exp {
-            None => {}
-            Some(e) => fctx.emit_statement(mlcfg::Statement::Assume(e.app_to(to))),
-        }
-    }
 }
 
 fn resolve_predicate_of<'tcx>(
@@ -690,7 +682,7 @@ fn resolve_predicate_of<'tcx>(
     }
 }
 
-fn resolve_trait_loaded(tcx: TyCtxt) -> bool {
+pub fn resolve_trait_loaded(tcx: TyCtxt) -> bool {
     tcx.get_diagnostic_item(Symbol::intern("creusot_resolve")).is_some()
 }
 
@@ -736,20 +728,4 @@ fn generic_decls<'tcx, I: Iterator<Item = &'tcx GenericParamDef> + 'tcx>(
             None
         }
     })
-}
-
-pub fn real_locals<'tcx>(tcx: TyCtxt<'tcx>, body: &Body<'tcx>) -> HashMap<Local, Local> {
-    let mut spec_local = 0;
-    body.local_decls
-        .iter_enumerated()
-        .filter_map(|(local, decl)| {
-            if let TyKind::Closure(def_id, _) = decl.ty.peel_refs().kind() {
-                if crate::util::is_spec(tcx, *def_id) {
-                    spec_local += 1;
-                    return None;
-                }
-            }
-            Some((local, (local.index() - spec_local).into()))
-        })
-        .collect()
 }

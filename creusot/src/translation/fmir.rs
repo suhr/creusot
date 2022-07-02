@@ -1,3 +1,4 @@
+use super::traits;
 use crate::{
     ctx::{item_name, CloneMap, TranslationCtx},
     specification::typing::{Literal, Term},
@@ -10,14 +11,14 @@ use crate::{
 };
 use creusot_rustc::{
     hir::{def::DefKind, def_id::DefId},
-    middle::ty::{subst::SubstsRef, AdtDef},
+    middle::ty::{subst::SubstsRef, AdtDef, GenericArg, ParamEnv, Ty, TypeFoldable},
     smir::mir::{BasicBlock, BinOp, Body, Place, UnOp},
     span::{Span, Symbol, DUMMY_SP},
     target::abi::VariantIdx,
 };
 use indexmap::IndexMap;
 use std::collections::HashMap;
-use why3::{exp::Pattern, mlcfg::BlockId};
+use why3::{exp::Pattern, mlcfg, mlcfg::BlockId};
 
 pub enum Statement<'tcx> {
     Assignment(Place<'tcx>, Expr<'tcx>),
@@ -35,6 +36,7 @@ pub enum Expr<'tcx> {
     Constructor(DefId, SubstsRef<'tcx>, Vec<Expr<'tcx>>),
     Call(DefId, SubstsRef<'tcx>, Vec<Expr<'tcx>>),
     Constant(Literal),
+    // Cast(Expr<'tcx>, Ty<'tcx>),
     Tuple(Vec<Expr<'tcx>>),
     Span(Span, Box<Expr<'tcx>>),
     // Migration escape hatch
@@ -100,7 +102,7 @@ impl<'tcx> Expr<'tcx> {
             Expr::Span(sp, e) => {
                 let e = e.to_why(ctx, names, body);
                 ctx.attach_span(sp, e)
-            }
+            } // Expr::Cast(_, _) => todo!(),
         }
     }
 }
@@ -217,6 +219,77 @@ impl<'tcx> Builder<'tcx> {
             blocks: Default::default(),
             block_id: BasicBlock::MAX,
             current: Block { stmts: Vec::new(), terminator: None },
+        }
+    }
+}
+impl<'tcx> Statement<'tcx> {
+    pub(crate) fn to_why(
+        self,
+        ctx: &mut TranslationCtx<'_, 'tcx>,
+        names: &mut CloneMap<'tcx>,
+        body: &Body<'tcx>,
+        param_env: ParamEnv<'tcx>,
+    ) -> Option<mlcfg::Statement> {
+        match self {
+            Statement::Assignment(_, _) => todo!(),
+            Statement::Borrow(_, _) => todo!(),
+            Statement::Resolve(pl) => {
+                match resolve_predicate_of(ctx, names, param_env, pl.ty(body, ctx.tcx).ty) {
+                    Some(rp) => Some(mlcfg::Statement::Assume(rp.app_to(Expr::Place(pl).to_why(
+                        ctx,
+                        names,
+                        Some(body),
+                    )))),
+                    None => None,
+                }
+            }
+            Statement::Assertion(_) => todo!(),
+            Statement::Ghost(_) => todo!(),
+            Statement::Invariant(_, _) => todo!(),
+        }
+    }
+}
+
+fn resolve_predicate_of<'tcx>(
+    ctx: &mut TranslationCtx<'_, 'tcx>,
+    names: &mut CloneMap<'tcx>,
+    param_env: ParamEnv<'tcx>,
+    ty: Ty<'tcx>,
+) -> Option<why3::exp::Exp> {
+    if !super::function::resolve_trait_loaded(ctx.tcx) {
+        ctx.warn(
+            DUMMY_SP,
+            "load the `creusot_contract` crate to enable resolution of mutable borrows.",
+        );
+        return None;
+    }
+
+    let trait_id = ctx.get_diagnostic_item(Symbol::intern("creusot_resolve")).unwrap();
+    let trait_meth_id = ctx.get_diagnostic_item(Symbol::intern("creusot_resolve_method")).unwrap();
+    let subst = ctx.mk_substs([GenericArg::from(ty)].iter());
+
+    let resolve_impl = traits::resolve_opt(ctx.tcx, param_env, trait_meth_id, subst);
+
+    match resolve_impl {
+        Some(method) => {
+            if !ty.still_further_specializable()
+                && ctx.is_diagnostic_item(Symbol::intern("creusot_resolve_default"), method.0)
+                && !method.1.type_at(0).is_closure()
+            {
+                return None;
+            }
+            ctx.translate(method.0);
+
+            Some(why3::exp::Exp::impure_qvar(
+                names.insert(method.0, method.1).qname(ctx.tcx, method.0),
+            ))
+        }
+        None => {
+            ctx.translate(trait_id);
+
+            Some(why3::exp::Exp::impure_qvar(
+                names.insert(trait_meth_id, subst).qname(ctx.tcx, trait_meth_id),
+            ))
         }
     }
 }
