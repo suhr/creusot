@@ -30,10 +30,7 @@ use creusot_rustc::{
     transform::{remove_false_edges::*, simplify::*},
 };
 use indexmap::IndexMap;
-use std::{
-    collections::{BTreeMap, HashMap},
-    rc::Rc,
-};
+use std::{collections::BTreeMap, rc::Rc};
 use why3::{
     declaration::*,
     exp::*,
@@ -41,6 +38,8 @@ use why3::{
     ty::Type,
     Ident,
 };
+
+use super::specification::typing::Term;
 
 pub mod place;
 mod promoted;
@@ -157,9 +156,9 @@ pub struct BodyTranslator<'body, 'sess, 'tcx> {
     // Gives a fresh name to every mono-morphization of a function or trait
     names: &'body mut CloneMap<'tcx>,
 
-    invariants: IndexMap<BasicBlock, Vec<(Symbol, Exp)>>,
+    invariants: IndexMap<BasicBlock, Vec<(Symbol, Term<'tcx>)>>,
 
-    assertions: IndexMap<DefId, Exp>,
+    assertions: IndexMap<DefId, Term<'tcx>>,
 
     borrows: Rc<BorrowSet<'tcx>>,
 }
@@ -173,8 +172,7 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
         sig: Signature,
         def_id: DefId,
     ) -> Self {
-        let (invariants, assertions) =
-            corrected_invariant_names_and_locations(ctx, names, def_id, &body);
+        let (invariants, assertions) = corrected_invariant_names_and_locations(ctx, def_id, &body);
         let mut erased_locals = BitSet::new_empty(body.local_decls.len());
 
         body.local_decls.iter_enumerated().for_each(|(local, decl)| {
@@ -264,7 +262,7 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
             }
 
             for (name, body) in self.invariants.remove(&bb).unwrap_or_else(Vec::new) {
-                self.emit_statement(Invariant(name.to_string().into(), body));
+                self.emit_statementf(fmir::Statement::Invariant(name, body));
             }
 
             self.freeze_locals_between_blocks(bb);
@@ -340,8 +338,8 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
         self.emit_assignment(rhs, Expr::Exp(reassign));
     }
 
-    fn emit_ghost_assign(&mut self, lhs: &Place<'tcx>, rhs: Exp) {
-        self.emit_assignment(lhs, Expr::Exp(Exp::Ghost(box rhs)))
+    fn emit_ghost_assign(&mut self, lhs: Place<'tcx>, rhs: Term<'tcx>) {
+        self.emit_statementf(fmir::Statement::Ghost(lhs, rhs))
     }
 
     fn emit_assignment(&mut self, lhs: &Place<'tcx>, rhs: Expr<'tcx>) {
@@ -431,7 +429,7 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
     }
 
     fn translate_local(&self, loc: Local) -> LocalIdent {
-        place::translate_local(&self.body, &HashMap::new(), loc)
+        place::translate_local(&self.body, loc)
     }
 }
 
@@ -456,6 +454,13 @@ impl LocalIdent {
         match &self.1 {
             None => format!("{:?}'", self.0).into(),
             Some(h) => ident_of(*h),
+        }
+    }
+
+    pub fn symbol(&self) -> Symbol {
+        match &self.1 {
+            Some(id) => Symbol::intern(&format!("{}_{}", &*ident_of(*id), self.0.index())),
+            None => Symbol::intern(&format!("_{}", self.0.index())),
         }
     }
 

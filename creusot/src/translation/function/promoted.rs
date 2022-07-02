@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     ctx::{CloneMap, TranslationCtx},
     error::Error,
@@ -99,7 +97,6 @@ pub fn translate_promoted<'tcx>(
                                 ctx,
                                 names,
                                 body,
-                                &HashMap::new(),
                                 pl.local,
                                 pl.projection,
                             ));
@@ -136,14 +133,9 @@ pub fn translate_promoted<'tcx>(
                                 ),
                             }
                         }
-                        Ref(_, BorrowKind::Shared, pl) => translate_rplace_inner(
-                            ctx,
-                            names,
-                            body,
-                            &HashMap::new(),
-                            pl.local,
-                            pl.projection,
-                        ),
+                        Ref(_, BorrowKind::Shared, pl) => {
+                            translate_rplace_inner(ctx, names, body, pl.local, pl.projection)
+                        }
 
                         Ref(_, _, _) => Err(Error::new(
                             stmt.source_info.span,
@@ -192,9 +184,7 @@ fn translate_operand<'tcx>(
     use creusot_rustc::smir::mir::Operand::*;
 
     match operand {
-        Move(pl) | Copy(pl) => {
-            translate_rplace_inner(ctx, names, body, &HashMap::new(), pl.local, pl.projection)
-        }
+        Move(pl) | Copy(pl) => translate_rplace_inner(ctx, names, body, pl.local, pl.projection),
         Constant(c) => from_mir_constant(param_env, ctx, names, c).to_why(ctx, names, Some(body)),
     }
 }

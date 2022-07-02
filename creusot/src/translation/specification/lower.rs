@@ -20,14 +20,14 @@ use why3::{
 pub fn lower_pure<'tcx>(
     ctx: &mut TranslationCtx<'_, 'tcx>,
     names: &mut CloneMap<'tcx>,
-    term_id: DefId,
+    // term_id: DefId,
     param_env: ParamEnv<'tcx>,
     term: Term<'tcx>,
 ) -> Exp {
     let span = term.span;
     let mut term = Lower { ctx, names, pure: Purity::Logic, param_env }.lower_term(term);
     term.reassociate();
-    if term_id.is_local() {
+    if ctx.sess.source_map().is_local_span(span) {
         term = ctx.attach_span(span, term);
     }
 
@@ -187,7 +187,7 @@ impl<'tcx> Lower<'_, '_, 'tcx> {
                 let ty =
                     translate_ty(self.ctx, self.names, creusot_rustc::span::DUMMY_SP, binder.1);
                 let old = std::mem::replace(&mut self.pure, Purity::Logic);
-                let f = Exp::Forall(vec![(binder.0.into(), ty)], box self.lower_term(body));
+                let f = Exp::Forall(vec![(binder.0.to_string().into(), ty)], box self.lower_term(body));
                 let _ = std::mem::replace(&mut self.pure, old);
                 if Purity::Program == self.pure {
                     Exp::Pure(box f)
@@ -199,7 +199,7 @@ impl<'tcx> Lower<'_, '_, 'tcx> {
                 let ty =
                     translate_ty(self.ctx, self.names, creusot_rustc::span::DUMMY_SP, binder.1);
                 let old = std::mem::replace(&mut self.pure, Purity::Logic);
-                let f = Exp::Exists(vec![(binder.0.into(), ty)], box self.lower_term(body));
+                let f = Exp::Exists(vec![(binder.0.to_string().into(), ty)], box self.lower_term(body));
                 let _ = std::mem::replace(&mut self.pure, old);
                 if Purity::Program == self.pure {
                     Exp::Pure(box f)
@@ -327,7 +327,7 @@ impl<'tcx> Lower<'_, '_, 'tcx> {
                 Pat::ConsP(constructor_qname(self.ctx.tcx, variant), fields)
             }
             Pattern::Wildcard => Pat::Wildcard,
-            Pattern::Binder(name) => Pat::VarP(name.into()),
+            Pattern::Binder(name) => Pat::VarP(name.to_string().into()),
             Pattern::Boolean(b) => {
                 if b {
                     Pat::mk_true()

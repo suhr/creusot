@@ -7,7 +7,7 @@ use creusot_rustc::{
     },
 };
 
-use why3::{exp::Exp, mlcfg::Statement::*, QName};
+use why3::{exp::Exp, QName};
 
 use super::BodyTranslator;
 use crate::{
@@ -157,7 +157,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                                 .assertions
                                 .remove(def_id)
                                 .expect("Could not find body of assertion");
-                            self.emit_statement(Assert(assertion));
+                            self.emit_statementf(fmir::Statement::Assertion(assertion));
                             return;
                         } else if util::is_ghost(self.tcx, *def_id) {
                             return;
@@ -166,8 +166,6 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                         } else {
                             let mut cons_name = item_name(self.tcx, *def_id);
                             cons_name.capitalize();
-                            let cons = self.names.insert(*def_id, subst).qname_ident(cons_name);
-
                             Expr::Constructor(*def_id, subst, fields)
                         }
                     }

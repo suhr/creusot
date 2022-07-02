@@ -18,7 +18,7 @@ use creusot_rustc::{
         ty::{
             self,
             subst::{GenericArgKind, SubstsRef},
-            AdtDef, ParamEnv, Predicate, Ty, TyCtxt, TyKind,
+            ParamEnv, Predicate, Ty, TyKind,
         },
     },
     smir::mir::{
@@ -77,7 +77,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                     let assertion = self.assertions.remove(&def_id).unwrap();
                     let (loc, bb) = (destination, target.unwrap());
 
-                    self.emit_ghost_assign(&loc, assertion);
+                    self.emit_ghost_assign(*loc, assertion);
                     self.emit_terminator(Terminator::Goto(bb));
                     return;
                 }

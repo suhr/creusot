@@ -1,4 +1,4 @@
-use super::traits;
+use super::{function::place, specification::lower_pure, traits};
 use crate::{
     ctx::{item_name, CloneMap, TranslationCtx},
     specification::typing::{Literal, Term},
@@ -17,7 +17,6 @@ use creusot_rustc::{
     target::abi::VariantIdx,
 };
 use indexmap::IndexMap;
-use std::collections::HashMap;
 use why3::{exp::Pattern, mlcfg, mlcfg::BlockId};
 
 pub enum Statement<'tcx> {
@@ -25,7 +24,7 @@ pub enum Statement<'tcx> {
     Borrow(Place<'tcx>, Expr<'tcx>),
     Resolve(Place<'tcx>),
     Assertion(Term<'tcx>),
-    Ghost(Term<'tcx>),
+    Ghost(Place<'tcx>, Term<'tcx>),
     Invariant(Symbol, Term<'tcx>),
 }
 
@@ -52,14 +51,9 @@ impl<'tcx> Expr<'tcx> {
     ) -> why3::exp::Exp {
         use why3::exp::Exp;
         match self {
-            Expr::Place(pl) => translate_rplace_inner(
-                ctx,
-                names,
-                body.unwrap(),
-                &HashMap::new(),
-                pl.local,
-                pl.projection,
-            ),
+            Expr::Place(pl) => {
+                translate_rplace_inner(ctx, names, body.unwrap(), pl.local, pl.projection)
+            }
             Expr::BinOp(BinOp::BitAnd, l, r) => Exp::BinaryOp(
                 why3::exp::BinOp::LazyAnd,
                 box l.to_why(ctx, names, body),
@@ -243,9 +237,18 @@ impl<'tcx> Statement<'tcx> {
                     None => None,
                 }
             }
-            Statement::Assertion(_) => todo!(),
-            Statement::Ghost(_) => todo!(),
-            Statement::Invariant(_, _) => todo!(),
+            Statement::Assertion(a) => {
+                Some(mlcfg::Statement::Assert(lower_pure(ctx, names, param_env, a)))
+            }
+            Statement::Ghost(lhs, rhs) => {
+                let ghost = why3::exp::Exp::Ghost(box lower_pure(ctx, names, param_env, rhs));
+
+                Some(place::create_assign_inner(ctx, names, body, &lhs, ghost))
+            }
+            Statement::Invariant(nm, inv) => Some(mlcfg::Statement::Invariant(
+                nm.to_string().into(),
+                lower_pure(ctx, names, param_env, inv),
+            )),
         }
     }
 }
