@@ -3,6 +3,7 @@ use crate::{
     ctx::{CloneMap, TranslationCtx},
     translation::{
         fmir::{self, Branches, Expr, Terminator},
+        specification::typing::{Term, TermKind, UnOp},
         traits,
     },
     util::is_ghost_closure,
@@ -23,14 +24,13 @@ use creusot_rustc::{
     },
     smir::mir::{
         BasicBlock, BasicBlockData, Location, Operand, Place, Rvalue, SourceInfo, StatementKind,
-        UnOp,
     },
     span::Span,
     trait_selection::traits::FulfillmentContext,
 };
 use itertools::Itertools;
 use std::collections::HashMap;
-use why3::{mlcfg::Statement, QName};
+use why3::QName;
 
 // Translate the terminator of a basic block.
 // There isn't much that's special about this. The only subtlety is in how
@@ -40,6 +40,7 @@ use why3::{mlcfg::Statement, QName};
 
 impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
     pub fn translate_terminator(&mut self, terminator: &mir::Terminator<'tcx>, location: Location) {
+        let span = terminator.source_info.span;
         match &terminator.kind {
             Goto { target } => self.emit_terminator(mk_goto(*target)),
             SwitchInt { discr, targets, .. } => {
@@ -90,12 +91,8 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
 
                 use creusot_rustc::trait_selection::traits::error_reporting::InferCtxtExt;
                 self.tcx.infer_ctxt().enter(|infcx| {
-                    let res = evaluate_additional_predicates(
-                        &infcx,
-                        predicates,
-                        self.param_env(),
-                        terminator.source_info.span,
-                    );
+                    let res =
+                        evaluate_additional_predicates(&infcx, predicates, self.param_env(), span);
                     if let Err(errs) = res {
                         let hir_id =
                             self.tcx.hir().local_def_id_to_hir_id(self.def_id.expect_local());
@@ -117,7 +114,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                     func_args.remove(0)
                 } else {
                     let exp = Expr::Call(fun_def_id, subst, func_args);
-                    let span = terminator.source_info.span.source_callsite();
+                    let span = span.source_callsite();
                     Expr::Span(span, box exp)
                 };
 
@@ -126,12 +123,29 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                 self.emit_terminator(Terminator::Goto(bb));
             }
             Assert { cond, expected, msg: _, target, cleanup: _ } => {
-                let mut ass = self.translate_operand(cond);
+                let mut ass = match cond {
+                    Operand::Copy(pl) | Operand::Move(pl) => {
+                        if let Some(locl) = pl.as_local() {
+                            Term {
+                                kind: TermKind::Var(self.translate_local(locl).symbol()),
+                                span,
+                                ty: cond.ty(self.body, self.tcx),
+                            }
+                        } else {
+                            unreachable!("assertion contains something other than local")
+                        }
+                    }
+                    Operand::Constant(_) => todo!(),
+                };
                 if !expected {
-                    ass = Expr::UnaryOp(UnOp::Not, box ass);
+                    ass = Term {
+                        ty: ass.ty,
+                        span: ass.span,
+                        kind: TermKind::Unary { op: UnOp::Neg, arg: box ass },
+                    };
                 }
-                let ass = ass.to_why(self.ctx, self.names, Some(self.body));
-                self.emit_statement(Statement::Assert(ass));
+                // let ass = ass.to_why(self.ctx, self.names, Some(self.body));
+                self.emit_statementf(fmir::Statement::Assertion(ass));
                 self.emit_terminator(mk_goto(*target))
             }
 
@@ -147,15 +161,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                 self.emit_statementf(fmir::Statement::Resolve(*place));
 
                 // Assign
-                let rhs = match value {
-                    Operand::Move(pl) | Operand::Copy(pl) => Expr::Place(*pl),
-                    Operand::Constant(box c) => crate::constant::from_mir_constant(
-                        self.param_env(),
-                        self.ctx,
-                        self.names,
-                        c,
-                    ),
-                };
+                let rhs = self.translate_operand(value);
 
                 self.emit_assignment(place, rhs);
 
