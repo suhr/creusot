@@ -24,7 +24,7 @@ use why3::{exp::Pattern, mlcfg, mlcfg::BlockId, Exp, QName};
 
 pub enum Statement<'tcx> {
     Assignment(Place<'tcx>, Expr<'tcx>),
-    Borrow(Place<'tcx>, Expr<'tcx>),
+    Borrow(Place<'tcx>, Place<'tcx>),
     Resolve(Place<'tcx>),
     Assertion(Term<'tcx>),
     Ghost(Place<'tcx>, Term<'tcx>),
@@ -158,65 +158,72 @@ impl<'tcx> Terminator<'tcx> {
             Terminator::Goto(bb) => Goto(BlockId(bb.into())),
             Terminator::Switch(switch, branches) => {
                 let discr = switch.to_why(ctx, names, body);
-                match branches {
-                    Branches::Int(brs, def) => {
-                        brs.into_iter().rfold(Goto(BlockId(def.into())), |acc, (val, bb)| {
-                            Switch(
-                                Exp::BinaryOp(
-                                    why3::exp::BinOp::Eq,
-                                    box discr.clone(),
-                                    box Exp::Const(why3::exp::Constant::Int(val, None)),
-                                ),
-                                vec![
-                                    (Pattern::mk_true(), Goto(BlockId(bb.into()))),
-                                    (Pattern::mk_false(), acc),
-                                ],
-                            )
-                        })
-                    }
-                    Branches::Uint(brs, def) => {
-                        brs.into_iter().rfold(Goto(BlockId(def.into())), |acc, (val, bb)| {
-                            Switch(
-                                Exp::BinaryOp(
-                                    why3::exp::BinOp::Eq,
-                                    box discr.clone(),
-                                    box Exp::Const(why3::exp::Constant::Uint(val, None)),
-                                ),
-                                vec![
-                                    (Pattern::mk_true(), Goto(BlockId(bb.into()))),
-                                    (Pattern::mk_false(), acc),
-                                ],
-                            )
-                        })
-                    }
-                    Branches::Constructor(adt, vars, def) => {
-                        use crate::util::constructor_qname;
-                        let count = adt.variants().len();
-                        let brs = vars
-                            .into_iter()
-                            .map(|(var, bb)| {
-                                let variant = &adt.variant(var);
-                                let wilds =
-                                    variant.fields.iter().map(|_| Pattern::Wildcard).collect();
-                                let cons_name = constructor_qname(ctx.tcx, variant);
-                                (Pattern::ConsP(cons_name, wilds), Goto(BlockId(bb.into())))
-                            })
-                            .chain(std::iter::once((Pattern::Wildcard, Goto(BlockId(def.into())))))
-                            .take(count);
-
-                        Switch(discr, brs.collect())
-                    }
-                    Branches::Bool(f, t) => Switch(
-                        discr,
-                        vec![
-                            (Pattern::mk_false(), Goto(BlockId(f.into()))),
-                            (Pattern::mk_true(), Goto(BlockId(t.into()))),
-                        ],
-                    ),
-                }
+                branches.to_why(ctx, discr)
             }
             Terminator::Return => Return,
             Terminator::Abort => Absurd,
+        }
+    }
+}
+
+impl<'tcx> Branches<'tcx> {
+    fn to_why(self, ctx: &mut TranslationCtx<'_, 'tcx>, discr: Exp) -> mlcfg::Terminator {
+        use why3::mlcfg::Terminator::*;
+
+        match self {
+            Branches::Int(brs, def) => {
+                brs.into_iter().rfold(Goto(BlockId(def.into())), |acc, (val, bb)| {
+                    Switch(
+                        Exp::BinaryOp(
+                            why3::exp::BinOp::Eq,
+                            box discr.clone(),
+                            box Exp::Const(why3::exp::Constant::Int(val, None)),
+                        ),
+                        vec![
+                            (Pattern::mk_true(), Goto(BlockId(bb.into()))),
+                            (Pattern::mk_false(), acc),
+                        ],
+                    )
+                })
+            }
+            Branches::Uint(brs, def) => {
+                brs.into_iter().rfold(Goto(BlockId(def.into())), |acc, (val, bb)| {
+                    Switch(
+                        Exp::BinaryOp(
+                            why3::exp::BinOp::Eq,
+                            box discr.clone(),
+                            box Exp::Const(why3::exp::Constant::Uint(val, None)),
+                        ),
+                        vec![
+                            (Pattern::mk_true(), Goto(BlockId(bb.into()))),
+                            (Pattern::mk_false(), acc),
+                        ],
+                    )
+                })
+            }
+            Branches::Constructor(adt, vars, def) => {
+                use crate::util::constructor_qname;
+                let count = adt.variants().len();
+                let brs = vars
+                    .into_iter()
+                    .map(|(var, bb)| {
+                        let variant = &adt.variant(var);
+                        let wilds = variant.fields.iter().map(|_| Pattern::Wildcard).collect();
+                        let cons_name = constructor_qname(ctx.tcx, variant);
+                        (Pattern::ConsP(cons_name, wilds), Goto(BlockId(bb.into())))
+                    })
+                    .chain(std::iter::once((Pattern::Wildcard, Goto(BlockId(def.into())))))
+                    .take(count);
+
+                Switch(discr, brs.collect())
+            }
+            Branches::Bool(f, t) => Switch(
+                discr,
+                vec![
+                    (Pattern::mk_false(), Goto(BlockId(f.into()))),
+                    (Pattern::mk_true(), Goto(BlockId(t.into()))),
+                ],
+            ),
         }
     }
 }
@@ -254,32 +261,39 @@ impl<'tcx> Statement<'tcx> {
         names: &mut CloneMap<'tcx>,
         body: &Body<'tcx>,
         param_env: ParamEnv<'tcx>,
-    ) -> Option<mlcfg::Statement> {
+    ) -> Vec<mlcfg::Statement> {
         match self {
             Statement::Assignment(_, _) => todo!(),
-            Statement::Borrow(_, _) => todo!(),
+            Statement::Borrow(lhs, rhs) => {
+                let borrow = Exp::BorrowMut(box Expr::Place(rhs).to_why(ctx, names, Some(body)));
+                let reassign = Exp::Final(box Expr::Place(lhs).to_why(ctx, names, Some(body)));
+
+                vec![
+                    place::create_assign_inner(ctx, names, body, &lhs, borrow),
+                    place::create_assign_inner(ctx, names, body, &rhs, reassign),
+                ]
+            }
             Statement::Resolve(pl) => {
                 match resolve_predicate_of(ctx, names, param_env, pl.ty(body, ctx.tcx).ty) {
-                    Some(rp) => Some(mlcfg::Statement::Assume(rp.app_to(Expr::Place(pl).to_why(
-                        ctx,
-                        names,
-                        Some(body),
-                    )))),
-                    None => None,
+                    Some(rp) => {
+                        let assume = rp.app_to(Expr::Place(pl).to_why(ctx, names, Some(body)));
+                        vec![mlcfg::Statement::Assume(assume)]
+                    }
+                    None => Vec::new(),
                 }
             }
             Statement::Assertion(a) => {
-                Some(mlcfg::Statement::Assert(lower_pure(ctx, names, param_env, a)))
+                vec![mlcfg::Statement::Assert(lower_pure(ctx, names, param_env, a))]
             }
             Statement::Ghost(lhs, rhs) => {
                 let ghost = why3::exp::Exp::Ghost(box lower_pure(ctx, names, param_env, rhs));
 
-                Some(place::create_assign_inner(ctx, names, body, &lhs, ghost))
+                vec![place::create_assign_inner(ctx, names, body, &lhs, ghost)]
             }
-            Statement::Invariant(nm, inv) => Some(mlcfg::Statement::Invariant(
+            Statement::Invariant(nm, inv) => vec![mlcfg::Statement::Invariant(
                 nm.to_string().into(),
                 lower_pure(ctx, names, param_env, inv),
-            )),
+            )],
         }
     }
 }
