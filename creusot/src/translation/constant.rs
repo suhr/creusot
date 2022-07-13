@@ -14,6 +14,7 @@ use why3::{
     QName,
 };
 
+use crate::translation::specification::typing::{Literal, Term, TermKind};
 use crate::{
     clone_map::CloneMap,
     ctx::{module_name, CloneSummary, TranslationCtx},
@@ -96,6 +97,47 @@ pub fn from_ty_const<'tcx>(
     }
 
     return Expr::Exp(try_to_bits(ctx, names, env, c.ty(), span, c));
+}
+
+fn try_to_bits2<'tcx, C: ToBits<'tcx>>(
+    ctx: &mut TranslationCtx<'_, 'tcx>,
+    names: &mut CloneMap<'tcx>,
+    env: ParamEnv<'tcx>,
+    ty: Ty<'tcx>,
+    span: Span,
+    c: C,
+) -> Term<'tcx> {
+    use rustc_type_ir::sty::TyKind::{Bool, FnDef, Int, Uint};
+    match ty.kind() {
+        Int(ity) => {
+            let bits = c.get_bits(ctx.tcx, env, ty).unwrap();
+
+            Term { ty, span, kind: TermKind::Lit(Literal::Int(bits, *ity)) }
+        }
+        Uint(uty) => {
+            let bits = c.get_bits(ctx.tcx, env, ty).unwrap();
+
+            Term { ty, span, kind: TermKind::Lit(Literal::Uint(bits, *uty)) }
+        }
+        Bool => Term {
+            ty,
+            span,
+            kind: TermKind::Lit(Literal::Bool(c.get_bits(ctx.tcx, env, ty) == Some(1))),
+        },
+        _ if ty.is_unit() => Term { ty, span, kind: TermKind::Tuple { fields: vec![] } },
+        FnDef(def_id, subst) => {
+            let method =
+                resolve_assoc_item_opt(ctx.tcx, env, *def_id, subst).unwrap_or((*def_id, subst));
+            names.insert(method.0, method.1);
+            Term { ty, span, kind: TermKind::Tuple { fields: vec![] } }
+        }
+        _ => {
+            ctx.crash_and_error(
+                span,
+                &format!("unsupported constant expression, try binding this to a variable. See issue #163"),
+            );
+        }
+    }
 }
 
 fn try_to_bits<'tcx, C: ToBits<'tcx>>(
