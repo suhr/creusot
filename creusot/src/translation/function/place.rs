@@ -21,32 +21,22 @@ use why3::{
 };
 
 impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
-    pub fn translate_rplace(&mut self, rhs: &Place<'tcx>) -> Exp {
-        translate_rplace_inner(
-            &mut self.ctx,
-            &mut self.names,
-            &self.body,
-            rhs.local,
-            rhs.projection,
-        )
-    }
-
-    /// Correctly translate an assignment from one place to another. The challenge here is correctly
-    /// construction the expression that assigns deep inside a structure.
-    /// (_1 as Some) = P      ---> let _1 = P ??
-    /// (*_1) = P             ---> let _1 = { current = P, .. }
-    /// (_1.2) = P            ---> let _1 = { _1 with [[2]] = P } (struct)
-    ///                       ---> let _1 = (let Cons(a, b, c) = _1 in Cons(a, b, P)) (tuple)
-    /// (*_1).1 = P           ---> let _1 = { _1 with current = ({ * _1 with [[1]] = P })}
-    /// ((*_1) as Some).0 = P ---> let _1 = { _1 with current = (let Some(X) = _1 in Some(P) )}
-
-    /// [(_1 as Some).0] = X   ---> let _1 = (let Some(a) = _1 in Some(X))
-    /// (* (* _1).2) = X ---> let _1 = { _1 with current = { * _1 with current = [(**_1).2 = X] }}
     pub fn create_assign(&mut self, lhs: &Place<'tcx>, rhs: Exp) -> mlcfg::Statement {
         create_assign_inner(self.ctx, self.names, self.body, lhs, rhs)
     }
 }
 
+/// Correctly translate an assignment from one place to another. The challenge here is correctly
+/// construction the expression that assigns deep inside a structure.
+/// (_1 as Some) = P      ---> let _1 = P ??
+/// (*_1) = P             ---> let _1 = { current = P, .. }
+/// (_1.2) = P            ---> let _1 = { _1 with [[2]] = P } (struct)
+///                       ---> let _1 = (let Cons(a, b, c) = _1 in Cons(a, b, P)) (tuple)
+/// (*_1).1 = P           ---> let _1 = { _1 with current = ({ * _1 with [[1]] = P })}
+/// ((*_1) as Some).0 = P ---> let _1 = { _1 with current = (let Some(X) = _1 in Some(P) )}
+
+/// [(_1 as Some).0] = X   ---> let _1 = (let Some(a) = _1 in Some(X))
+/// (* (* _1).2) = X ---> let _1 = { _1 with current = { * _1 with current = [(**_1).2 = X] }}
 pub fn create_assign_inner<'tcx>(
     ctx: &mut TranslationCtx<'_, 'tcx>,
     names: &mut CloneMap<'tcx>,

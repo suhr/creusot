@@ -54,7 +54,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                     // let ty = place.ty(self.body, self.tcx).ty;
                     self.emit_statementf(fmir::Statement::Resolve(*place));
                     // self.resolve_ty(ty).emit(*place, self);
-                    Expr::Exp(self.translate_rplace(pl))
+                    Expr::Place(*pl)
                 }
                 Constant(box c) => {
                     if let Some(c) = c.literal.const_for_ty() {
