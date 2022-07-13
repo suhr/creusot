@@ -692,21 +692,26 @@ impl<'tcx> Term<'tcx> {
         inv_subst: &std::collections::HashMap<Symbol, Term<'tcx>>,
     ) {
         match &mut self.kind {
-            TermKind::Var(v) => match inv_subst.get(v) {
-                Some(t) => self.kind = t.kind.clone(),
-                None => (),
-            },
+            TermKind::Var(v) => {
+                if bound.contains(v) {
+                    return;
+                }
+                match inv_subst.get(v) {
+                    Some(t) => self.kind = t.kind.clone(),
+                    None => (),
+                }
+            }
             TermKind::Lit(_) => {}
             TermKind::Item(_, _) => {}
             TermKind::Binary { lhs, rhs, .. } => {
-                lhs.subst(inv_subst);
-                rhs.subst(inv_subst)
+                lhs.subst_inner(bound, inv_subst);
+                rhs.subst_inner(bound, inv_subst)
             }
             TermKind::Logical { lhs, rhs, .. } => {
-                lhs.subst(inv_subst);
-                rhs.subst(inv_subst)
+                lhs.subst_inner(bound, inv_subst);
+                rhs.subst_inner(bound, inv_subst)
             }
-            TermKind::Unary { arg, .. } => arg.subst(inv_subst),
+            TermKind::Unary { arg, .. } => arg.subst_inner(bound, inv_subst),
             TermKind::Forall { binder, body } => {
                 let mut bound = bound.clone();
                 bound.insert(binder.0);
@@ -729,15 +734,15 @@ impl<'tcx> Term<'tcx> {
             TermKind::Tuple { fields } => {
                 fields.iter_mut().for_each(|f| f.subst_inner(bound, inv_subst))
             }
-            TermKind::Cur { term } => term.subst(inv_subst),
-            TermKind::Fin { term } => term.subst(inv_subst),
+            TermKind::Cur { term } => term.subst_inner(bound, inv_subst),
+            TermKind::Fin { term } => term.subst_inner(bound, inv_subst),
             TermKind::Impl { lhs, rhs } => {
-                lhs.subst(inv_subst);
-                rhs.subst(inv_subst)
+                lhs.subst_inner(bound, inv_subst);
+                rhs.subst_inner(bound, inv_subst)
             }
             TermKind::Equals { lhs, rhs } => {
-                lhs.subst(inv_subst);
-                rhs.subst(inv_subst)
+                lhs.subst_inner(bound, inv_subst);
+                rhs.subst_inner(bound, inv_subst)
             }
             TermKind::Match { scrutinee, arms } => {
                 scrutinee.subst_inner(bound, inv_subst);
@@ -754,8 +759,8 @@ impl<'tcx> Term<'tcx> {
                 pattern.binds(&mut bound);
                 body.subst_inner(&bound, inv_subst);
             }
-            TermKind::Projection { lhs, .. } => lhs.subst(inv_subst),
-            TermKind::Old { term } => term.subst(inv_subst),
+            TermKind::Projection { lhs, .. } => lhs.subst_inner(bound, inv_subst),
+            TermKind::Old { term } => term.subst_inner(bound, inv_subst),
             TermKind::Absurd => {}
         }
     }

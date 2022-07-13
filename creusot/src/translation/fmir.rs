@@ -7,7 +7,7 @@ use crate::{
         function::{place::translate_rplace_inner, terminator::get_func_name},
         unop_to_unop,
     },
-    util::item_qname,
+    util::item_qname, clone_map::PreludeModule,
 };
 use creusot_rustc::{
     hir::{def::DefKind, def_id::DefId},
@@ -17,7 +17,7 @@ use creusot_rustc::{
     target::abi::VariantIdx,
 };
 use indexmap::IndexMap;
-use why3::{exp::Pattern, mlcfg, mlcfg::BlockId};
+use why3::{exp::Pattern, mlcfg, mlcfg::BlockId, QName};
 
 pub enum Statement<'tcx> {
     Assignment(Place<'tcx>, Expr<'tcx>),
@@ -30,7 +30,7 @@ pub enum Statement<'tcx> {
 
 pub enum Expr<'tcx> {
     Place(Place<'tcx>),
-    BinOp(BinOp, Box<Expr<'tcx>>, Box<Expr<'tcx>>),
+    BinOp(BinOp, Ty<'tcx>, Box<Expr<'tcx>>, Box<Expr<'tcx>>),
     UnaryOp(UnOp, Box<Expr<'tcx>>),
     Constructor(DefId, SubstsRef<'tcx>, Vec<Expr<'tcx>>),
     Call(DefId, SubstsRef<'tcx>, Vec<Expr<'tcx>>),
@@ -54,12 +54,19 @@ impl<'tcx> Expr<'tcx> {
             Expr::Place(pl) => {
                 translate_rplace_inner(ctx, names, body.unwrap(), pl.local, pl.projection)
             }
-            Expr::BinOp(BinOp::BitAnd, l, r) => Exp::BinaryOp(
+            Expr::BinOp(BinOp::BitAnd, _, l, r) => Exp::BinaryOp(
                 why3::exp::BinOp::LazyAnd,
                 box l.to_why(ctx, names, body),
                 box r.to_why(ctx, names, body),
             ),
-            Expr::BinOp(op, l, r) => Exp::BinaryOp(
+            Expr::BinOp(BinOp::Eq, ty, l, r) if ty.is_bool() => {
+                names.import_prelude_module(PreludeModule::Prelude);
+                Exp::Call(
+                    box Exp::impure_qvar(QName::from_string("Prelude.eqb").unwrap()),
+                    vec![l.to_why(ctx, names, body), r.to_why(ctx, names, body)],
+                )
+            }
+            Expr::BinOp(op, _, l, r) => Exp::BinaryOp(
                 binop_to_binop(op),
                 box l.to_why(ctx, names, body),
                 box r.to_why(ctx, names, body),
