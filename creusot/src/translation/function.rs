@@ -319,9 +319,10 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
     }
 
     fn emit_statementf(&mut self, s: fmir::Statement<'tcx>) {
-        match s.to_why(self.ctx, self.names, self.body, self.param_env()) {
-            Some(s) => self.emit_statement(s),
-            None => (),
+        let stmts = s.to_why(self.ctx, self.names, self.body, self.param_env());
+
+        for s in stmts {
+            self.emit_statement(s)
         }
     }
 
@@ -332,10 +333,7 @@ impl<'body, 'sess, 'tcx> BodyTranslator<'body, 'sess, 'tcx> {
     }
 
     fn emit_borrow(&mut self, lhs: &Place<'tcx>, rhs: &Place<'tcx>) {
-        let borrow = Exp::BorrowMut(box self.translate_rplace(rhs));
-        self.emit_assignment(lhs, Expr::Exp(borrow));
-        let reassign = Exp::Final(box self.translate_rplace(lhs));
-        self.emit_assignment(rhs, Expr::Exp(reassign));
+        self.emit_statementf(fmir::Statement::Borrow(*lhs, *rhs));
     }
 
     fn emit_ghost_assign(&mut self, lhs: Place<'tcx>, rhs: Term<'tcx>) {

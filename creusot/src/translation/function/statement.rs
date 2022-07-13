@@ -6,8 +6,6 @@ use creusot_rustc::{
     },
 };
 
-use why3::exp::Exp;
-
 use super::BodyTranslator;
 use crate::{
     translation::fmir::{self, Expr},
@@ -104,7 +102,7 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                         .nth(0);
                     if let Some(two_phase) = two_phase {
                         let place = self.borrows[*two_phase].assigned_place.clone();
-                        Expr::Exp(Exp::Current(box self.translate_rplace(&place)))
+                        Expr::Place(self.ctx.mk_place_deref(place))
                     } else {
                         Expr::Place(*pl)
                     }
