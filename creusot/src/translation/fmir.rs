@@ -1,5 +1,6 @@
 use super::{function::place, specification::lower_pure, traits};
 use crate::{
+    clone_map::PreludeModule,
     ctx::{item_name, CloneMap, TranslationCtx},
     specification::typing::{Literal, Term},
     translation::{
@@ -7,7 +8,7 @@ use crate::{
         function::{place::translate_rplace_inner, terminator::get_func_name},
         unop_to_unop,
     },
-    util::item_qname, clone_map::PreludeModule,
+    util::item_qname,
 };
 use creusot_rustc::{
     hir::{def::DefKind, def_id::DefId},
@@ -17,7 +18,9 @@ use creusot_rustc::{
     target::abi::VariantIdx,
 };
 use indexmap::IndexMap;
-use why3::{exp::Pattern, mlcfg, mlcfg::BlockId, QName};
+use rustc_middle::ty::TyKind;
+use rustc_type_ir::{IntTy, UintTy};
+use why3::{exp::Pattern, mlcfg, mlcfg::BlockId, Exp, QName};
 
 pub enum Statement<'tcx> {
     Assignment(Place<'tcx>, Expr<'tcx>),
@@ -35,9 +38,10 @@ pub enum Expr<'tcx> {
     Constructor(DefId, SubstsRef<'tcx>, Vec<Expr<'tcx>>),
     Call(DefId, SubstsRef<'tcx>, Vec<Expr<'tcx>>),
     Constant(Literal),
-    // Cast(Expr<'tcx>, Ty<'tcx>),
+    Cast(Box<Expr<'tcx>>, Ty<'tcx>, Ty<'tcx>),
     Tuple(Vec<Expr<'tcx>>),
     Span(Span, Box<Expr<'tcx>>),
+    Len(Box<Expr<'tcx>>),
     // Migration escape hatch
     Exp(why3::exp::Exp),
 }
@@ -48,8 +52,7 @@ impl<'tcx> Expr<'tcx> {
         ctx: &mut TranslationCtx<'_, 'tcx>,
         names: &mut CloneMap<'tcx>,
         body: Option<&Body<'tcx>>,
-    ) -> why3::exp::Exp {
-        use why3::exp::Exp;
+    ) -> Exp {
         match self {
             Expr::Place(pl) => {
                 translate_rplace_inner(ctx, names, body.unwrap(), pl.local, pl.projection)
@@ -104,6 +107,27 @@ impl<'tcx> Expr<'tcx> {
                 let e = e.to_why(ctx, names, body);
                 ctx.attach_span(sp, e)
             } // Expr::Cast(_, _) => todo!(),
+            Expr::Cast(e, source, target) => {
+                let to_int = match source.kind() {
+                    TyKind::Int(ity) => int_to_int(ity),
+                    TyKind::Uint(uty) => uint_to_int(uty),
+                    _ => unreachable!(),
+                };
+
+                let from_int = match target.kind() {
+                    TyKind::Int(ity) => int_from_int(ity),
+                    TyKind::Uint(uty) => uint_from_int(uty),
+                    _ => unreachable!(),
+                };
+
+                from_int.app_to(to_int.app_to(e.to_why(ctx, names, body)))
+            }
+            Expr::Len(pl) => {
+                let int_conversion = uint_from_int(&UintTy::Usize);
+                let len_call = Exp::impure_qvar(QName::from_string("Seq.length").unwrap())
+                    .app_to(pl.to_why(ctx, names, body));
+                int_conversion.app_to(len_call)
+            }
         }
     }
 }
@@ -129,7 +153,7 @@ impl<'tcx> Terminator<'tcx> {
         names: &mut CloneMap<'tcx>,
         body: Option<&Body<'tcx>>,
     ) -> why3::mlcfg::Terminator {
-        use why3::{exp::Exp, mlcfg::Terminator::*};
+        use why3::mlcfg::Terminator::*;
         match self {
             Terminator::Goto(bb) => Goto(BlockId(bb.into())),
             Terminator::Switch(switch, branches) => {
@@ -301,5 +325,49 @@ fn resolve_predicate_of<'tcx>(
                 names.insert(trait_meth_id, subst).qname(ctx.tcx, trait_meth_id),
             ))
         }
+    }
+}
+
+pub fn int_from_int(ity: &IntTy) -> Exp {
+    match ity {
+        IntTy::Isize => Exp::impure_qvar(QName::from_string("Int64.of_int").unwrap()),
+        IntTy::I8 => unimplemented!(),
+        IntTy::I16 => unimplemented!(),
+        IntTy::I32 => Exp::impure_qvar(QName::from_string("Int32.of_int").unwrap()),
+        IntTy::I64 => Exp::impure_qvar(QName::from_string("Int64.of_int").unwrap()),
+        IntTy::I128 => unimplemented!(),
+    }
+}
+
+pub fn uint_from_int(uty: &UintTy) -> Exp {
+    match uty {
+        UintTy::Usize => Exp::impure_qvar(QName::from_string("UInt64.of_int").unwrap()),
+        UintTy::U8 => unimplemented!(),
+        UintTy::U16 => unimplemented!(),
+        UintTy::U32 => Exp::impure_qvar(QName::from_string("UInt32.of_int").unwrap()),
+        UintTy::U64 => Exp::impure_qvar(QName::from_string("UInt64.of_int").unwrap()),
+        UintTy::U128 => unimplemented!(),
+    }
+}
+
+pub fn int_to_int(ity: &IntTy) -> Exp {
+    match ity {
+        IntTy::Isize => Exp::impure_qvar(QName::from_string("Int64.to_int").unwrap()),
+        IntTy::I8 => unimplemented!(),
+        IntTy::I16 => unimplemented!(),
+        IntTy::I32 => Exp::impure_qvar(QName::from_string("Int32.to_int").unwrap()),
+        IntTy::I64 => Exp::impure_qvar(QName::from_string("Int64.to_int").unwrap()),
+        IntTy::I128 => unimplemented!(),
+    }
+}
+
+pub fn uint_to_int(uty: &UintTy) -> Exp {
+    match uty {
+        UintTy::Usize => Exp::impure_qvar(QName::from_string("UInt64.to_int").unwrap()),
+        UintTy::U8 => unimplemented!(),
+        UintTy::U16 => unimplemented!(),
+        UintTy::U32 => Exp::impure_qvar(QName::from_string("UInt32.to_int").unwrap()),
+        UintTy::U64 => Exp::impure_qvar(QName::from_string("UInt64.to_int").unwrap()),
+        UintTy::U128 => unimplemented!(),
     }
 }

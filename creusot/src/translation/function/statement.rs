@@ -1,13 +1,12 @@
 use creusot_rustc::{
     borrowck::borrow_set::TwoPhaseActivation,
-    middle::ty::{IntTy, TyKind, UintTy},
     smir::mir::{
         BinOp, BorrowKind::*, CastKind, Location, Operand::*, Place, Rvalue, SourceInfo, Statement,
         StatementKind,
     },
 };
 
-use why3::{exp::Exp, QName};
+use why3::exp::Exp;
 
 use super::BodyTranslator;
 use crate::{
@@ -120,21 +119,16 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                 }
             },
             Rvalue::Discriminant(_) => return,
-            Rvalue::BinaryOp(BinOp::BitAnd, box (l, r)) if !l.ty(self.body, self.tcx).is_bool() => {
+            Rvalue::BinaryOp(BinOp::BitAnd, box (l, _)) if !l.ty(self.body, self.tcx).is_bool() => {
                 self.ctx.crash_and_error(si.span, "bitwise operations are currently unsupported")
             }
-            //     self.translate_operand(l).to_why(self.ctx, self.names, Some(self.body)).and(self.translate_operand(r).to_why(self.ctx, self.names, Some(self.body)))
-            // }
-            // Rvalue::BinaryOp(BinOp::Eq, box (l, r)) if l.ty(self.body, self.tcx).is_bool() => {
-            //     self.names.import_prelude_module(PreludeModule::Prelude);
-            //     Call(
-            //         box Exp::impure_qvar(QName::from_string("Prelude.eqb").unwrap()),
-            //         vec![self.translate_operand(l).to_why(self.ctx, self.names, Some(self.body)), self.translate_operand(r).to_why(self.ctx, self.names, Some(self.body))],
-            //     )
-            // }
             Rvalue::BinaryOp(op, box (l, r)) | Rvalue::CheckedBinaryOp(op, box (l, r)) => {
-                let exp =
-                    Expr::BinOp(*op, l.ty(self.body, self.tcx), box self.translate_operand(l), box self.translate_operand(r));
+                let exp = Expr::BinOp(
+                    *op,
+                    l.ty(self.body, self.tcx),
+                    box self.translate_operand(l),
+                    box self.translate_operand(r),
+                );
                 Expr::Span(si.span, box exp)
             }
             Rvalue::UnaryOp(op, v) => Expr::UnaryOp(*op, box self.translate_operand(v)),
@@ -175,41 +169,10 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
                     ),
                 }
             }
-            Rvalue::Len(pl) => {
-                let int_conversion = uint_from_int(&UintTy::Usize);
-                let len_call = Exp::impure_qvar(QName::from_string("Seq.length").unwrap())
-                    .app_to(self.translate_rplace(pl));
-                Expr::Exp(int_conversion.app_to(len_call))
-            }
+            Rvalue::Len(pl) => Expr::Len(box Expr::Place(*pl)),
             Rvalue::Cast(CastKind::Misc, op, ty) => {
                 let op_ty = op.ty(self.body, self.tcx);
-                if !op_ty.is_integral() {
-                    self.ctx
-                        .crash_and_error(si.span, "Non integral casts are currently unsupported")
-                } else {
-                    let op_to_int = match op_ty.kind() {
-                        TyKind::Int(ity) => int_to_int(ity),
-                        TyKind::Uint(uty) => uint_to_int(uty),
-                        _ => unreachable!(),
-                    };
-                    match ty.kind() {
-                        TyKind::Int(ity) => Expr::Exp(int_from_int(ity).app_to(op_to_int.app_to(
-                            self.translate_operand(op).to_why(
-                                self.ctx,
-                                self.names,
-                                Some(self.body),
-                            ),
-                        ))),
-                        TyKind::Uint(uty) => Expr::Exp(uint_from_int(uty).app_to(
-                            op_to_int.app_to(self.translate_operand(op).to_why(
-                                self.ctx,
-                                self.names,
-                                Some(self.body),
-                            )),
-                        )),
-                        _ => unreachable!(),
-                    }
-                }
+                Expr::Cast(box self.translate_operand(op), op_ty, *ty)
             }
             Rvalue::Cast(
                 CastKind::Pointer(_)
@@ -229,49 +192,5 @@ impl<'tcx> BodyTranslator<'_, '_, 'tcx> {
         };
 
         self.emit_assignment(place, rval);
-    }
-}
-
-fn int_from_int(ity: &IntTy) -> Exp {
-    match ity {
-        IntTy::Isize => Exp::impure_qvar(QName::from_string("Int64.of_int").unwrap()),
-        IntTy::I8 => unimplemented!(),
-        IntTy::I16 => unimplemented!(),
-        IntTy::I32 => Exp::impure_qvar(QName::from_string("Int32.of_int").unwrap()),
-        IntTy::I64 => Exp::impure_qvar(QName::from_string("Int64.of_int").unwrap()),
-        IntTy::I128 => unimplemented!(),
-    }
-}
-
-pub fn uint_from_int(uty: &UintTy) -> Exp {
-    match uty {
-        UintTy::Usize => Exp::impure_qvar(QName::from_string("UInt64.of_int").unwrap()),
-        UintTy::U8 => unimplemented!(),
-        UintTy::U16 => unimplemented!(),
-        UintTy::U32 => Exp::impure_qvar(QName::from_string("UInt32.of_int").unwrap()),
-        UintTy::U64 => Exp::impure_qvar(QName::from_string("UInt64.of_int").unwrap()),
-        UintTy::U128 => unimplemented!(),
-    }
-}
-
-fn int_to_int(ity: &IntTy) -> Exp {
-    match ity {
-        IntTy::Isize => Exp::impure_qvar(QName::from_string("Int64.to_int").unwrap()),
-        IntTy::I8 => unimplemented!(),
-        IntTy::I16 => unimplemented!(),
-        IntTy::I32 => Exp::impure_qvar(QName::from_string("Int32.to_int").unwrap()),
-        IntTy::I64 => Exp::impure_qvar(QName::from_string("Int64.to_int").unwrap()),
-        IntTy::I128 => unimplemented!(),
-    }
-}
-
-pub fn uint_to_int(uty: &UintTy) -> Exp {
-    match uty {
-        UintTy::Usize => Exp::impure_qvar(QName::from_string("UInt64.to_int").unwrap()),
-        UintTy::U8 => unimplemented!(),
-        UintTy::U16 => unimplemented!(),
-        UintTy::U32 => Exp::impure_qvar(QName::from_string("UInt32.to_int").unwrap()),
-        UintTy::U64 => Exp::impure_qvar(QName::from_string("UInt64.to_int").unwrap()),
-        UintTy::U128 => unimplemented!(),
     }
 }

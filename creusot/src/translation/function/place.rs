@@ -2,7 +2,7 @@ use super::{BodyTranslator, LocalIdent};
 use crate::{
     ctx::{CloneMap, TranslationCtx},
     translation::{
-        function::statement::uint_to_int,
+        fmir::uint_to_int,
         ty::{closure_accessor_name, variant_accessor_name},
     },
     util::{constructor_qname, item_qname},
